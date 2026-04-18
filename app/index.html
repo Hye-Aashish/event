@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Navratri 2024 — Book Your Tickets</title>
+  <meta name="description" content="Experience the magic of Navratri. Book your tickets now for the biggest garba festival." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="app.css" />
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+</head>
+<body>
+
+<!-- ═══════ NAVBAR ═══════ -->
+<nav class="navbar" id="navbar">
+  <div class="nav-inner">
+    <div class="nav-logo">🪔 <span>Navratri</span> <b>2024</b></div>
+    <div class="nav-links" id="navLinks">
+      <a href="#" onclick="showPage('home')" class="nav-link active" id="nl-home">Home</a>
+      <a href="#" onclick="showPage('events')" class="nav-link" id="nl-events">Events</a>
+      <a href="#" onclick="showPage('mytickets')" class="nav-link" id="nl-mytickets" style="display:none">My Tickets</a>
+    </div>
+    <div class="nav-actions">
+      <div id="guestActions">
+        <button class="btn btn-primary" onclick="showPage('login')">Login / Register</button>
+      </div>
+      <div id="userActions" style="display:none">
+        <div class="user-chip" id="userChip">
+          <span class="user-avatar">👤</span>
+          <span id="userPhone">+91XXXXXXXX</span>
+          <button class="btn-logout" onclick="logout()">↩</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════ PAGES ═══════ -->
+
+<!-- ── HOME ── -->
+<div class="page active" id="page-home">
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-bg">
+      <div class="glow glow-1"></div>
+      <div class="glow glow-2"></div>
+      <div class="glow glow-3"></div>
+    </div>
+    <div class="hero-content">
+      <div class="hero-badge">🪔 10th Edition · Est. 2015</div>
+      <h1 class="hero-title">Feel The<br><span class="gradient-text">Divine Energy</span><br>of Navratri</h1>
+      <p class="hero-sub">9 nights of garba, devotion and celebration. Book your tickets now before they sell out.</p>
+      <div class="hero-cta">
+        <button class="btn btn-hero" onclick="showPage('events')">Browse Events</button>
+        <button class="btn btn-outline-hero" onclick="showPage('login')">Get Started</button>
+      </div>
+      <div class="hero-stats" id="heroStats">
+        <div class="hero-stat"><span class="h-stat-val" id="hs-events">--</span><span class="h-stat-label">Events</span></div>
+        <div class="hero-stat"><span class="h-stat-val" id="hs-tickets">--</span><span class="h-stat-label">Tickets Sold</span></div>
+        <div class="hero-stat"><span class="h-stat-val">10K+</span><span class="h-stat-label">Attendees</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Featured Events -->
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2>Upcoming Events</h2>
+        <button class="btn btn-sm-link" onclick="showPage('events')">View All →</button>
+      </div>
+      <div class="events-grid" id="featuredEvents">
+        <div class="event-skeleton"></div>
+        <div class="event-skeleton"></div>
+        <div class="event-skeleton"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ── EVENTS ── -->
+<div class="page" id="page-events">
+  <div class="container" style="padding-top:100px">
+    <div class="page-heading">
+      <h2>All Events</h2>
+      <p class="muted">Choose an event to view tickets and book your spot</p>
+    </div>
+    <div class="events-grid" id="allEventsList">
+      <div class="event-skeleton"></div>
+      <div class="event-skeleton"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── EVENT DETAIL ── -->
+<div class="page" id="page-event-detail">
+  <div class="container" style="padding-top:100px">
+    <button class="back-btn" onclick="showPage('events')">← Back to Events</button>
+    <div id="eventDetailContent"><div class="center-loader">Loading...</div></div>
+  </div>
+</div>
+
+<!-- ── LOGIN ── -->
+<div class="page" id="page-login">
+  <div class="auth-wrap">
+    <div class="auth-card glass-card">
+      <div class="auth-logo">🪔</div>
+      <h2>Welcome Back</h2>
+      <p class="muted" style="margin-bottom:28px">Enter your mobile number to continue</p>
+
+      <!-- OTP Request -->
+      <div id="stepPhone">
+        <div class="form-group">
+          <label>Mobile Number</label>
+          <div class="phone-input">
+            <span class="phone-prefix">+91</span>
+            <input id="phoneInput" type="tel" class="form-input" placeholder="98765 43210" maxlength="10" />
+          </div>
+        </div>
+        <button class="btn btn-primary full-width" onclick="requestOtp()">Send OTP</button>
+      </div>
+
+      <!-- OTP Verify -->
+      <div id="stepOtp" style="display:none">
+        <p class="muted small" style="margin-bottom:16px">OTP sent to <strong id="otpPhone"></strong></p>
+        <div class="form-group">
+          <label>Enter OTP</label>
+          <input id="otpInput" type="number" class="form-input" placeholder="6-digit OTP" maxlength="6" />
+        </div>
+        <button class="btn btn-primary full-width" onclick="verifyOtp()">Verify & Login</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('stepPhone').style.display='block';document.getElementById('stepOtp').style.display='none'">Change Number</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MY TICKETS ── -->
+<div class="page" id="page-mytickets">
+  <div class="container" style="padding-top:100px">
+    <div class="page-heading">
+      <h2>My Tickets</h2>
+      <p class="muted">All your purchased and transferred tickets</p>
+    </div>
+    <div id="myTicketsList"><div class="center-loader">Loading...</div></div>
+  </div>
+</div>
+
+<!-- ── TICKET DETAIL / QR ── -->
+<div class="page" id="page-ticket-qr">
+  <div class="container" style="padding-top:100px">
+    <button class="back-btn" onclick="showPage('mytickets')">← My Tickets</button>
+    <div id="ticketQrContent"></div>
+  </div>
+</div>
+
+<!-- ── VERIFY SEASON PASS ── -->
+<div class="page" id="page-verify">
+  <div class="container" style="padding-top:100px">
+    <button class="back-btn" onclick="showPage('mytickets')">← Back</button>
+    <div id="verifyContent"></div>
+  </div>
+</div>
+
+<!-- ═══════ BOOKING MODAL ═══════ -->
+<div class="modal-overlay" id="bookingModal">
+  <div class="modal booking-modal">
+    <div class="modal-header">
+      <h3>Book Ticket</h3>
+      <button onclick="closeModal('bookingModal')" class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="bookingSteps">
+        <!-- Step 1: Select -->
+        <div id="bookStep1">
+          <div class="step-indicator"><span class="step active">1</span><span class="step-line"></span><span class="step">2</span><span class="step-line"></span><span class="step">3</span></div>
+          <h4 class="step-title">Choose Your Ticket</h4>
+
+          <div class="form-group">
+            <label>Ticket Type</label>
+            <div class="type-select">
+              <div class="type-option" id="to-regular" onclick="selectType('regular')">
+                <div class="type-icon">🎟️</div>
+                <div class="type-info"><div class="type-name">Regular Pass</div><div class="type-desc">Single entry · Transferable</div></div>
+              </div>
+              <div class="type-option" id="to-season" onclick="selectType('season')">
+                <div class="type-icon">🌟</div>
+                <div class="type-info"><div class="type-name">Season Pass</div><div class="type-desc">All 9 days · Requires verification</div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Category</label>
+            <select id="bookCategory" class="form-input" onchange="updatePrice()">
+              <option value="General">General</option>
+              <option value="VIP">VIP</option>
+              <option value="Premium">Premium</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Zone</label>
+            <select id="bookZone" class="form-input"></select>
+          </div>
+
+          <div class="form-group">
+            <label>Quantity</label>
+            <div class="qty-control">
+              <button onclick="changeQty(-1)">−</button>
+              <span id="qtyDisplay">1</span>
+              <button onclick="changeQty(1)">+</button>
+            </div>
+          </div>
+
+          <div class="price-summary glass-card" id="priceSummary">
+            <div class="ps-row"><span>Base Price</span><span id="ps-base">₹0</span></div>
+            <div class="ps-row"><span>GST</span><span id="ps-gst">₹0</span></div>
+            <div class="ps-row total"><span>Total</span><span id="ps-total">₹0</span></div>
+          </div>
+        </div>
+
+        <!-- Step 2: Payment -->
+        <div id="bookStep2" style="display:none">
+          <div class="step-indicator"><span class="step done">✓</span><span class="step-line done"></span><span class="step active">2</span><span class="step-line"></span><span class="step">3</span></div>
+          <h4 class="step-title">Payment</h4>
+          <div class="payment-info glass-card">
+            <div class="ps-row"><span>Tickets</span><span id="pay-qty">1x Regular</span></div>
+            <div class="ps-row total"><span>Amount Due</span><span id="pay-total">₹0</span></div>
+          </div>
+          <div class="payment-methods">
+            <div class="pm-option selected" id="pm-upi">📱 UPI / GPay / PhonePe</div>
+            <div class="pm-option" id="pm-card" onclick="selectPm('card')">💳 Credit / Debit Card</div>
+          </div>
+          <p class="muted small" style="margin-top:12px">🔒 Secured by Razorpay. Tap Pay to proceed.</p>
+        </div>
+
+        <!-- Step 3: Confirmation -->
+        <div id="bookStep3" style="display:none">
+          <div class="step-indicator"><span class="step done">✓</span><span class="step-line done"></span><span class="step done">✓</span><span class="step-line done"></span><span class="step active">3</span></div>
+          <div class="success-animation">🎉</div>
+          <h4 class="step-title" style="text-align:center">Booking Confirmed!</h4>
+          <p class="muted" style="text-align:center">Your tickets are in My Tickets section.</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" id="bookingFooter">
+      <button class="btn btn-outline" onclick="closeModal('bookingModal')">Cancel</button>
+      <button class="btn btn-primary" id="bookNextBtn" onclick="bookingNext()">Continue →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
