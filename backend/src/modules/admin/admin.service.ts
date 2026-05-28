@@ -3,12 +3,14 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from '../../schemas/user.schema';
 import { Ticket } from '../../schemas/ticket.schema';
+import { Settings } from '../../schemas/settings.schema';
 
 @Injectable()
 export class AdminService {
   constructor(
     @InjectModel(User.name) private userModel: Model<any>,
     @InjectModel(Ticket.name) private ticketModel: Model<any>,
+    @InjectModel(Settings.name) private settingsModel: Model<any>,
     @InjectModel('ScanLog') private scanLogModel: Model<any>,
     @InjectModel('Event') private eventModel: Model<any>,
   ) {}
@@ -45,5 +47,45 @@ export class AdminService {
 
   async updateUserRole(id: string, role: string) {
     return this.userModel.findByIdAndUpdate(id, { role }, { new: true });
+  }
+
+  async getPendingVerifications() {
+    return this.userModel.find({ verificationStatus: 'pending' }).sort({ updatedAt: 1 }).select('-__v').lean();
+  }
+
+  async updateVerificationStatus(id: string, status: string, reason: string = '') {
+    const update: any = { 
+      verificationStatus: status,
+      verificationReason: reason 
+    };
+    
+    // If approved, also set isVerified to true
+    if (status === 'approved') {
+      update.isVerified = true;
+    } else if (status === 'rejected') {
+      update.isVerified = false;
+    }
+
+    return this.userModel.findByIdAndUpdate(id, { $set: update }, { new: true });
+  }
+
+  async verifyTicket(ticketId: string) {
+    return this.ticketModel.findByIdAndUpdate(
+      ticketId, 
+      { $set: { isVerified: true, verificationStatus: 'approved' } }, 
+      { new: true }
+    );
+  }
+
+  async getSettings() {
+    return this.settingsModel.findOne({ key: 'global' }).lean();
+  }
+
+  async updateSettings(body: any) {
+    return this.settingsModel.findOneAndUpdate(
+      { key: 'global' },
+      { $set: body },
+      { upsert: true, new: true }
+    );
   }
 }

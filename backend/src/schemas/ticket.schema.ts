@@ -17,6 +17,9 @@ export class Ticket {
   @Prop({ required: true, enum: ['regular', 'season'] })
   type: string;
 
+  @Prop()
+  date: string; // YYYY-MM-DD for regular passes
+
   @Prop({ required: true })
   category: string; // 'VIP', 'General', 'Premium'
 

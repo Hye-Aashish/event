@@ -1,12 +1,14 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Ticket, TicketDocument } from '../../schemas/ticket.schema';
-import { Event, EventDocument } from '../../schemas/event.schema';
-import { Zone, ZoneDocument } from '../../schemas/zone.schema';
-import { TransferLog } from '../../schemas/log.schema';
 import * as crypto from 'crypto';
+import { Model, Types } from 'mongoose';
 import Razorpay from 'razorpay';
+import { Event, EventDocument } from '../../schemas/event.schema';
+import { Settings, SettingsDocument } from '../../schemas/settings.schema';
+import { Ticket, TicketDocument } from '../../schemas/ticket.schema';
+import { Zone, ZoneDocument } from '../../schemas/zone.schema';
+
+import { User } from '../../schemas/user.schema';
 
 @Injectable()
 export class TicketsService {
@@ -16,71 +18,158 @@ export class TicketsService {
     @InjectModel(Ticket.name) private ticketModel: Model<TicketDocument>,
     @InjectModel(Event.name) private eventModel: Model<EventDocument>,
     @InjectModel(Zone.name) private zoneModel: Model<ZoneDocument>,
+    @InjectModel(Settings.name) private settingsModel: Model<SettingsDocument>,
     @InjectModel('TransferLog') private transferLogModel: Model<any>,
-  ) {
-    this.razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
-      key_secret: process.env.RAZORPAY_KEY_SECRET || 'placeholder',
-    });
+    @InjectModel(User.name) private userModel: Model<any>,
+  ) { }
+
+  private async getRazorpayInstance() {
+    const settings = await this.settingsModel.findOne({ key: 'global' });
+    const key_id = settings?.razorpayKeyId || process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder';
+    const key_secret = settings?.razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET || 'placeholder';
+
+    return new Razorpay({ key_id, key_secret });
+  }
+
+  private async getRazorpayKey() {
+    const settings = await this.settingsModel.findOne({ key: 'global' });
+    return settings?.razorpayKeyId || process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder';
   }
 
   // ── Create Razorpay Order ─────────────────────────────────────────────────
-  async createOrder(userId: string, body: { eventId: string; zoneId: string; type: string; category: string; quantity: number }) {
+  async createOrder(userId: string, body: { eventId: string; zoneId: string; type: string; category: string; quantity: number; date?: string }) {
     const event = await this.eventModel.findById(body.eventId);
     if (!event) throw new NotFoundException('Event not found');
     if (event.status !== 'published') throw new BadRequestException('Event not available');
 
-    const basePrice = event.ticketPricing?.[body.type]?.[body.category] || 0;
-    const gstAmount = event.gstEnabled ? Math.round(basePrice * (event.gstPercentage / 100)) : 0;
-    const totalPerTicket = basePrice + gstAmount;
+    const zone = await this.zoneModel.findById(body.zoneId);
+    if (!zone) throw new NotFoundException('Zone not found');
+
+    console.log(`🎟️ Creating Razorpay Order for User: ${userId} | Event: ${event.name} | Zone: ${zone.name}`);
+
+    // Pricing Logic
+    const basePrice = (body.type === 'season') ? (zone.seasonPrice || 0) : (zone.dailyPrice || 0);
+
+    let gstAmount = 0;
+    let finalBasePrice = basePrice;
+
+    if (event.gstEnabled) {
+      if (event.gstInclusive) {
+        // Price includes GST: Base = Total / (1 + tax_rate)
+        const total = basePrice;
+        finalBasePrice = Math.round(total / (1 + (event.gstPercentage / 100)));
+        gstAmount = total - finalBasePrice;
+      } else {
+        // Price excludes GST: Tax = Base * tax_rate
+        gstAmount = Math.round(basePrice * (event.gstPercentage / 100));
+      }
+    }
+
+    console.log(`💰 Pricing: Base: ${finalBasePrice}, GST: ${gstAmount}, Total: ${finalBasePrice + gstAmount}`);
+
+    const totalPerTicket = finalBasePrice + gstAmount;
     const totalAmount = totalPerTicket * body.quantity;
 
-    const order = await this.razorpay.orders.create({
-      amount: totalAmount * 100, // paise
+    const rzp = await this.getRazorpayInstance();
+    const order = await rzp.orders.create({
+      amount: Math.round(totalAmount * 100), // paise
       currency: 'INR',
       receipt: `rcpt_${Date.now()}`,
-      notes: { userId, eventId: body.eventId, type: body.type, category: body.category, quantity: String(body.quantity) },
+      notes: {
+        userId,
+        eventId: body.eventId,
+        zoneId: body.zoneId,
+        type: body.type,
+        category: body.category,
+        date: body.date || '',
+        quantity: String(body.quantity)
+      },
     });
 
-    return { order, basePrice, gstAmount, totalAmount };
+    return {
+      order,
+      basePrice: finalBasePrice,
+      gstAmount,
+      totalAmount,
+      razorpayKey: await this.getRazorpayKey()
+    };
   }
 
   // ── Verify Payment & Create Tickets ──────────────────────────────────────
   async verifyAndCreate(userId: string, body: any) {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, eventId, zoneId, type, category, quantity } = body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, eventId, zoneId, type, category, quantity, date } = body;
+
+    // Validation
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !eventId || !zoneId) {
+      throw new BadRequestException('Missing required payment verification details');
+    }
+
+    const settings = await this.settingsModel.findOne({ key: 'global' });
+    const secret = settings?.razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET || 'placeholder';
 
     const expectedSig = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'placeholder')
+      .createHmac('sha256', secret)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest('hex');
 
     if (expectedSig !== razorpay_signature) {
+      console.error(`❌ Payment Verification Failed for User: ${userId}`);
+      console.error(`Order ID: ${razorpay_order_id}`);
+      console.error(`Status: Signature mismatch`);
       throw new BadRequestException('Payment verification failed');
     }
 
     const event = await this.eventModel.findById(eventId);
-    const basePrice = event.ticketPricing?.[type]?.[category] || 0;
-    const gstAmount = event.gstEnabled ? Math.round(basePrice * (event.gstPercentage / 100)) : 0;
+    if (!event) throw new NotFoundException('Event not found');
+
+    const zone = await this.zoneModel.findById(zoneId);
+    if (!zone) throw new NotFoundException('Zone not found');
+
+    // Recalculate for verification
+    const rawPrice = (type === 'season') ? (zone.seasonPrice || 0) : (zone.dailyPrice || 0);
+    let gstAmount = 0;
+    let basePrice = rawPrice;
+
+    if (event.gstEnabled) {
+      if (event.gstInclusive) {
+        basePrice = Math.round(rawPrice / (1 + (event.gstPercentage / 100)));
+        gstAmount = rawPrice - basePrice;
+      } else {
+        gstAmount = Math.round(rawPrice * (event.gstPercentage / 100));
+      }
+    }
 
     const tickets = [];
-    for (let i = 0; i < quantity; i++) {
+    const actualQuantity = parseInt(String(quantity || 1));
+
+    console.log(`✅ Creating ${actualQuantity} tickets for User: ${userId}`);
+
+    for (let i = 0; i < actualQuantity; i++) {
       const ticketId = new Types.ObjectId().toString();
       const qrHash = this.generateQrHash(ticketId, eventId);
 
       const ticket = await this.ticketModel.create({
-        userId, eventId, zoneId, type, category,
+        userId: new Types.ObjectId(userId), 
+        eventId: new Types.ObjectId(eventId), 
+        zoneId: new Types.ObjectId(zoneId), 
+        type, category, date,
         qrHash,
         razorpayOrderId: razorpay_order_id,
         razorpayPaymentId: razorpay_payment_id,
         basePrice, gstAmount,
         totalAmount: basePrice + gstAmount,
         transferable: type === 'regular',
-        currentOwner: userId,
+        currentOwner: new Types.ObjectId(userId),
         source: 'purchase',
         status: 'active',
       });
       tickets.push(ticket);
     }
+
+    // Decrement zone capacity
+    await this.zoneModel.findByIdAndUpdate(zoneId, {
+      $inc: { currentCount: actualQuantity, availableSeats: -actualQuantity }
+    });
 
     return { success: true, tickets };
   }
@@ -106,13 +195,13 @@ export class TicketsService {
   async getAllTickets(query: any = {}) {
     const filter: any = {};
     if (query.eventId) filter.eventId = query.eventId;
-    if (query.type)    filter.type    = query.type;
-    if (query.status)  filter.status  = query.status;
+    if (query.type) filter.type = query.type;
+    if (query.status) filter.status = query.status;
     return this.ticketModel
       .find(filter)
-      .populate('userId',  'phoneNumber name')
+      .populate('currentOwner', 'phoneNumber name')
       .populate('eventId', 'name')
-      .populate('zoneId',  'name')
+      .populate('zoneId', 'name')
       .sort({ createdAt: -1 })
       .limit(200)
       .lean();
@@ -120,11 +209,15 @@ export class TicketsService {
 
   // ── My Tickets ────────────────────────────────────────────────────────────
   async getMyTickets(userId: string) {
-    return this.ticketModel
-      .find({ currentOwner: userId, status: { $ne: 'transferred' } })
+    console.log(`🎫 Fetching tickets for user: ${userId}`);
+    const tickets = await this.ticketModel
+      .find({ currentOwner: new Types.ObjectId(userId), status: { $ne: 'transferred' } })
       .populate('eventId', 'name venue eventDates bannerUrl')
       .populate('zoneId', 'name')
       .sort({ createdAt: -1 });
+
+    console.log(`✅ Found ${tickets.length} tickets for user ${userId}`);
+    return tickets;
   }
 
 
@@ -137,8 +230,23 @@ export class TicketsService {
     if (ticket.status !== 'active') throw new BadRequestException('Ticket is not active');
     if (ticket.currentOwner.toString() !== fromUserId) throw new BadRequestException('Not your ticket');
 
-    // Find recipient — in production, query User by phone
-    const toUserId = new Types.ObjectId(); // Placeholder — replace with real user lookup
+    // Find recipient — query User by phone
+    const normalizedPhone = toPhone.startsWith('+') ? toPhone : `+91${toPhone}`;
+    const rawPhone = toPhone.replace('+91', '');
+
+    const recipient = await this.userModel.findOne({
+      $or: [
+        { phoneNumber: toPhone },
+        { phoneNumber: normalizedPhone },
+        { phoneNumber: rawPhone }
+      ]
+    });
+
+    if (!recipient) {
+      throw new BadRequestException('Recipient not found. Please ask them to register first.');
+    }
+
+    const toUserId = recipient._id;
 
     await this.ticketModel.updateOne(
       { _id: ticketId },
@@ -184,8 +292,8 @@ export class TicketsService {
       $set: {
         verificationStatus: 'pending',
         verificationData: {
-          selfieUrl:   body.selfieUrl   || '',
-          idProofUrl:  body.idProofUrl  || '',
+          selfieUrl: body.selfieUrl || '',
+          idProofUrl: body.idProofUrl || '',
           submittedAt: new Date(),
         },
       },

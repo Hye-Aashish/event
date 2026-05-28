@@ -3,10 +3,10 @@ import { Document, Types } from 'mongoose';
 
 @Schema({ timestamps: true, collection: 'scan_logs' })
 export class ScanLog {
-  @Prop({ type: Types.ObjectId, ref: 'Ticket', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'Ticket' })
   ticketId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Event', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'Event' })
   eventId: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'Zone' })

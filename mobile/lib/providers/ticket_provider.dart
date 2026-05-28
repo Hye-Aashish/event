@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+
 import '../models/ticket_model.dart';
 import '../services/api_service.dart';
 
@@ -23,7 +24,7 @@ class TicketProvider extends ChangeNotifier {
     try {
       final res = await ApiService.getMyTickets();
       if (res['success'] == true) {
-        final list = res['tickets'] as List<dynamic>? ?? [];
+        final list = (res['data'] ?? res['tickets']) as List<dynamic>? ?? [];
         _tickets = list
             .map((t) => TicketModel.fromJson(t as Map<String, dynamic>))
             .toList();
@@ -39,43 +40,78 @@ class TicketProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<Map<String, dynamic>> buyTicket({
+  Future<Map<String, dynamic>> createRazorpayOrder({
     required String eventId,
     required String zoneId,
-    required String ticketType,
-    required double pricePaid,
-    Map<String, dynamic>? extra,
+    required String type,
+    required String category,
+    required int quantity,
+    String? date,
   }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final res = await ApiService.createOrder({
+        'eventId': eventId,
+        'zoneId': zoneId,
+        'type': type,
+        'category': category,
+        'quantity': quantity,
+        if (date != null) 'date': date,
+      });
+
+      if (kDebugMode) {
+        print("order created : $res");
+      }
+
+      _isLoading = false;
+      notifyListeners();
+      return res;
+    } catch (e) {
+      if (kDebugMode) {
+        print("order created error : $e");
+      }
+      _isLoading = false;
+      _errorMessage = 'Failed to create order. Try again.';
+      notifyListeners();
+      return {'success': false, 'message': e.toString()};
+      
+    }
+  }
+
+  Future<Map<String, dynamic>> verifyPayment(Map<String, dynamic> data) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      final res = await ApiService.purchaseTicket({
-        'eventId': eventId,
-        'zoneId': zoneId,
-        'ticketType': ticketType,
-        'pricePaid': pricePaid,
-        ...?extra,
-      });
-
+      final res = await ApiService.verifyPayment(data);
       if (res['success'] == true) {
-        await fetchTickets(); // Refresh the list
+        // Ticket book ho gaya, list refresh karo
+        await fetchTickets();
         _isLoading = false;
         notifyListeners();
-        return {'success': true, 'ticket': res['ticket']};
+        return {'success': true, 'message': 'Ticket booked successfully'};
       } else {
         _isLoading = false;
+        _errorMessage = res['message'] ?? 'Payment verification failed';
         notifyListeners();
-        return {'success': false, 'message': res['message'] ?? 'Purchase failed'};
+        return res;
       }
     } catch (e) {
       _isLoading = false;
+      _errorMessage = 'Verification error. Please check your tickets tab.';
       notifyListeners();
-      return {'success': false, 'message': 'Network error during purchase'};
+      return {
+        'success': false,
+        'message': 'Connection error during verification'
+      };
     }
   }
 
-  Future<Map<String, dynamic>> transferTicket(String ticketId, String toPhone) async {
+  Future<Map<String, dynamic>> transferTicket(
+      String ticketId, String toPhone) async {
     try {
       final res = await ApiService.transferTicket(ticketId, toPhone);
       if (res['success'] == true) {

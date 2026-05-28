@@ -43,6 +43,7 @@ dependencies:
 
   # Icons
   cupertino_icons: ^1.0.8
+  razorpay_flutter: ^1.4.4
 
 dev_dependencies:
   flutter_test:
@@ -52,6 +53,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  assets:
-    - assets/images/
-    - assets/animations/
+  # assets:
+  #   - assets/images/
+  #   - assets/animations/

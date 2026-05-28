@@ -32,12 +32,13 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 
 function badge(status) {
   const map = {
+    approve: 'badge-success', rejected: 'badge-danger', none: 'badge-muted',
     active: 'badge-success', published: 'badge-success', approved: 'badge-success',
     pending: 'badge-warning', draft: 'badge-warning',
-    used: 'badge-info',       season: 'badge-info',     regular: 'badge-muted',
-    expired: 'badge-muted',   transferred: 'badge-muted', cancelled: 'badge-muted',
+    used: 'badge-info', season: 'badge-info', regular: 'badge-muted',
+    expired: 'badge-muted', transferred: 'badge-muted', cancelled: 'badge-muted',
     success: 'badge-success', duplicate: 'badge-warning', invalid_sig: 'badge-danger',
-    fraud: 'badge-danger',    time_invalid: 'badge-warning',
+    fraud: 'badge-danger', time_invalid: 'badge-warning',
   };
   return `<span class="badge ${map[status] || 'badge-muted'}">${status}</span>`;
 }
@@ -54,12 +55,18 @@ function navigate(page, el) {
   document.getElementById('page-' + page).classList.add('active');
   if (el) el.classList.add('active');
   document.getElementById('pageTitle').textContent =
-    { dashboard: 'Dashboard', events: 'Events', zones: 'Zones', tickets: 'Tickets',
-      users: 'Users', sponsors: 'Sponsors', scanlogs: 'Scan Logs' }[page];
+    {
+      dashboard: 'Dashboard', events: 'Events', zones: 'Zones', tickets: 'Tickets',
+      users: 'Users', verifications: 'Verifications', sponsors: 'Sponsors', scanlogs: 'Scan Logs',
+      settings: 'Settings'
+    }[page];
 
-  const loaders = { events: loadEvents, zones: loadZones, tickets: loadTickets,
-                    users: loadUsers, sponsors: loadSponsors, scanlogs: loadScanLogs,
-                    dashboard: loadDashboard };
+  const loaders = {
+    events: loadEvents, zones: loadZones, tickets: loadTickets,
+    users: loadUsers, verifications: loadVerifications,
+    sponsors: loadSponsors, scanlogs: loadScanLogs,
+    dashboard: loadDashboard, settings: loadSettings
+  };
   if (loaders[page]) loaders[page]();
 }
 
@@ -79,8 +86,8 @@ async function loadDashboard() {
     if (adminStats.status === 'fulfilled') {
       const s = adminStats.value;
       document.getElementById('stat-tickets').textContent = s.totalTickets ?? '--';
-      document.getElementById('stat-users').textContent   = s.totalUsers   ?? '--';
-      document.getElementById('stat-scans').textContent   = s.totalScans   ?? '--';
+      document.getElementById('stat-users').textContent = s.totalUsers ?? '--';
+      document.getElementById('stat-scans').textContent = s.totalScans ?? '--';
     }
 
     // Initialize Chart
@@ -110,7 +117,7 @@ async function loadDashboard() {
     } else {
       rs.innerHTML = '<div class="loading">Create an event first</div>';
     }
-  } catch (e) {}
+  } catch (e) { }
 }
 
 // ── Events ────────────────────────────────────────────────────────
@@ -127,7 +134,7 @@ async function loadEvents() {
     }
     tb.innerHTML = events.map(e => `
       <tr>
-        <td><strong>${e.name}</strong><br><small style="color:var(--muted)">${e.description?.slice(0,40) || ''}</small></td>
+        <td><strong>${e.name}</strong><br><small style="color:var(--muted)">${e.description?.slice(0, 40) || ''}</small></td>
         <td>${e.venue}</td>
         <td>${(e.eventDates || []).join('<br>')}</td>
         <td>${badge(e.status)}</td>
@@ -147,13 +154,14 @@ function openEventModal(reset = true) {
   if (reset) {
     document.getElementById('editEventId').value = '';
     document.getElementById('eventModalTitle').textContent = 'Create New Event';
-    ['eventName','eventVenue','eventDesc','eventDates','eventGst','eventMaxSponsor',
-     'priceRegularVIP','priceRegularGeneral','priceRegularPremium',
-     'priceSeasonVIP','priceSeasonGeneral','priceSeasonPremium'].forEach(id => {
-      document.getElementById(id).value = '';
-    });
+    ['eventName', 'eventVenue', 'eventDesc', 'eventDates', 'eventGst', 'eventMaxSponsor',
+      'priceRegularVIP', 'priceRegularGeneral', 'priceRegularPremium',
+      'priceSeasonVIP', 'priceSeasonGeneral', 'priceSeasonPremium'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
     document.getElementById('eventStatus').value = 'draft';
     document.getElementById('eventGstEnabled').value = 'false';
+    document.getElementById('eventGstInclusive').value = 'false';
     document.getElementById('eventGst').value = 18;
     document.getElementById('eventMaxSponsor').value = 100;
     document.getElementById('eventImageUrl').value = '';
@@ -167,52 +175,57 @@ async function editEvent(id) {
     const e = await apiFetch(`/events/${id}`);
     document.getElementById('editEventId').value = e._id;
     document.getElementById('eventModalTitle').textContent = 'Edit Event';
-    document.getElementById('eventName').value  = e.name || '';
+    document.getElementById('eventName').value = e.name || '';
     document.getElementById('eventVenue').value = e.venue || '';
-    document.getElementById('eventDesc').value  = e.description || '';
+    document.getElementById('eventDesc').value = e.description || '';
     document.getElementById('eventDates').value = (e.eventDates || []).join(',');
     document.getElementById('eventStatus').value = e.status || 'draft';
     document.getElementById('eventGstEnabled').value = String(e.gstEnabled || false);
+    document.getElementById('eventGstInclusive').value = String(e.gstInclusive || false);
     document.getElementById('eventGst').value = e.gstPercentage || 18;
     document.getElementById('eventMaxSponsor').value = e.maxSponsorTickets || 0;
-    document.getElementById('priceRegularVIP').value     = e.ticketPricing?.regular?.VIP     || '';
+    document.getElementById('priceRegularVIP').value = e.ticketPricing?.regular?.VIP || '';
     document.getElementById('priceRegularGeneral').value = e.ticketPricing?.regular?.General || '';
     document.getElementById('priceRegularPremium').value = e.ticketPricing?.regular?.Premium || '';
-    document.getElementById('priceSeasonVIP').value      = e.ticketPricing?.season?.VIP      || '';
-    document.getElementById('priceSeasonGeneral').value  = e.ticketPricing?.season?.General  || '';
-    document.getElementById('priceSeasonPremium').value  = e.ticketPricing?.season?.Premium  || '';
-    
+    document.getElementById('priceSeasonVIP').value = e.ticketPricing?.season?.VIP || '';
+    document.getElementById('priceSeasonGeneral').value = e.ticketPricing?.season?.General || '';
+    document.getElementById('priceSeasonPremium').value = e.ticketPricing?.season?.Premium || '';
+
     if (e.imageUrl) {
       document.getElementById('eventImageUrl').value = e.imageUrl;
-      document.getElementById('previewImg').src = API.replace('/api', '') + e.imageUrl; 
+      document.getElementById('previewImg').src = API.replace('/api', '') + e.imageUrl;
       document.getElementById('imagePreview').style.display = 'block';
     } else {
       document.getElementById('imagePreview').style.display = 'none';
     }
-    
+
     openModal('eventModal');
+  } catch (e) {
+    showToast('❌ Failed to load event details', 'error');
+  }
 }
 
 async function saveEvent() {
   const id = document.getElementById('editEventId').value;
   const body = {
-    name:        document.getElementById('eventName').value,
-    venue:       document.getElementById('eventVenue').value,
+    name: document.getElementById('eventName').value,
+    venue: document.getElementById('eventVenue').value,
     description: document.getElementById('eventDesc').value,
-    eventDates:  document.getElementById('eventDates').value.split(',').map(d => d.trim()).filter(Boolean),
-    imageUrl:    document.getElementById('eventImageUrl').value,
-    status:      document.getElementById('eventStatus').value,
-    gstEnabled:  document.getElementById('eventGstEnabled').value === 'true',
+    eventDates: document.getElementById('eventDates').value.split(',').map(d => d.trim()).filter(Boolean),
+    imageUrl: document.getElementById('eventImageUrl').value,
+    status: document.getElementById('eventStatus').value,
+    gstEnabled: document.getElementById('eventGstEnabled').value === 'true',
+    gstInclusive: document.getElementById('eventGstInclusive').value === 'true',
     gstPercentage: Number(document.getElementById('eventGst').value),
     maxSponsorTickets: Number(document.getElementById('eventMaxSponsor').value),
     ticketPricing: {
       regular: {
-        VIP:     Number(document.getElementById('priceRegularVIP').value)     || 0,
+        VIP: Number(document.getElementById('priceRegularVIP').value) || 0,
         General: Number(document.getElementById('priceRegularGeneral').value) || 0,
         Premium: Number(document.getElementById('priceRegularPremium').value) || 0,
       },
       season: {
-        VIP:     Number(document.getElementById('priceSeasonVIP').value)     || 0,
+        VIP: Number(document.getElementById('priceSeasonVIP').value) || 0,
         General: Number(document.getElementById('priceSeasonGeneral').value) || 0,
         Premium: Number(document.getElementById('priceSeasonPremium').value) || 0,
       },
@@ -229,7 +242,7 @@ async function saveEvent() {
     }
     closeModal('eventModal');
     loadEvents();
-  } catch {}
+  } catch { }
 }
 
 async function deleteEvent(id) {
@@ -258,9 +271,16 @@ async function loadZones() {
         <td>
           <div style="display:flex;align-items:center;gap:8px">
             <div style="background:rgba(255,255,255,0.1);border-radius:4px;height:6px;width:80px;overflow:hidden">
-              <div style="width:${Math.min(100, (z.currentCount/z.capacity)*100)||0}%;height:100%;background:linear-gradient(90deg,var(--pink),var(--purple))"></div>
+              <div style="width:${Math.min(100, (z.currentCount / z.capacity) * 100) || 0}%;height:100%;background:linear-gradient(90deg,var(--pink),var(--purple))"></div>
             </div>
             <span style="font-size:12px">${z.currentCount}/${z.capacity}</span>
+          </div>
+        </td>
+        <td>
+          <div style="font-size: 12px;">
+            ${z.dailyPrice ? `D: ₹${z.dailyPrice}` : ''}
+            ${z.seasonPrice ? `${z.dailyPrice ? '<br>' : ''}S: ₹${z.seasonPrice}` : ''}
+            ${!z.dailyPrice && !z.seasonPrice ? '—' : ''}
           </div>
         </td>
         <td>${badge(z.isActive ? 'active' : 'cancelled')}</td>
@@ -275,13 +295,14 @@ async function loadZones() {
 
 async function saveZone() {
   const body = {
-    name:        document.getElementById('zoneName').value,
-    eventId:     document.getElementById('zoneEventId').value,
-    capacity:    Number(document.getElementById('zoneCapacity').value),
+    name: document.getElementById('zoneName').value,
+    eventId: document.getElementById('zoneEventId').value,
+    capacity: Number(document.getElementById('zoneCapacity').value),
     availableSeats: Number(document.getElementById('zoneCapacity').value),
-    price:       Number(document.getElementById('zonePrice').value),
-    type:        document.getElementById('zoneType').value,
-    color:       document.getElementById('zoneColor').value,
+    dailyPrice: Number(document.getElementById('zoneDailyPrice').value),
+    seasonPrice: Number(document.getElementById('zoneSeasonPrice').value),
+    type: document.getElementById('zoneType').value,
+    color: document.getElementById('zoneColor').value,
     autoVerifySeasonPass: document.getElementById('zoneAutoVerify').value === 'true',
     allowedTicketCategories: document.getElementById('zoneCategories').value.split(',').map(c => c.trim()).filter(Boolean),
   };
@@ -296,7 +317,7 @@ async function saveZone() {
     }
     closeModal('zoneModal');
     loadZones();
-  } catch {}
+  } catch { }
 }
 
 async function editZone(id) {
@@ -308,13 +329,14 @@ async function editZone(id) {
     document.getElementById('zoneName').value = z.name;
     document.getElementById('zoneEventId').value = z.eventId?._id || z.eventId;
     document.getElementById('zoneCapacity').value = z.capacity;
-    document.getElementById('zonePrice').value = z.price || 0;
+    document.getElementById('zoneDailyPrice').value = z.dailyPrice || 0;
+    document.getElementById('zoneSeasonPrice').value = z.seasonPrice || 0;
     document.getElementById('zoneType').value = z.type || 'daily';
     document.getElementById('zoneColor').value = z.color || '#FF0080';
     document.getElementById('zoneAutoVerify').value = String(z.autoVerifySeasonPass);
     document.getElementById('zoneCategories').value = (z.allowedTicketCategories || []).join(',');
     openModal('zoneModal');
-  } catch {}
+  } catch { }
 }
 
 // ── Tickets ──────────────────────────────────────────────────────
@@ -322,32 +344,46 @@ async function loadTickets() {
   const tb = document.getElementById('ticketsTable');
   tb.innerHTML = '<tr><td colspan="8" class="loading">Loading...</td></tr>';
   try {
-    const eventId  = document.getElementById('ticketEventFilter').value;
-    const type     = document.getElementById('ticketTypeFilter').value;
-    const status   = document.getElementById('ticketStatusFilter').value;
+    const eventId = document.getElementById('ticketEventFilter').value;
+    const type = document.getElementById('ticketTypeFilter').value;
+    const status = document.getElementById('ticketStatusFilter').value;
 
     let params = new URLSearchParams();
     if (eventId) params.append('eventId', eventId);
-    if (type)    params.append('type', type);
-    if (status)  params.append('status', status);
+    if (type) params.append('type', type);
+    if (status) params.append('status', status);
 
     const tickets = await apiFetch(`/tickets/all?${params.toString()}`);
     allTickets = tickets;
     if (!tickets.length) {
-      tb.innerHTML = '<tr><td colspan="8" class="loading">No tickets found</td></tr>'; return;
+      tb.innerHTML = '<tr><td colspan="9" class="loading">No tickets found</td></tr>'; return;
     }
     tb.innerHTML = tickets.map(t => `
       <tr>
         <td style="font-family:monospace;font-size:11px;color:var(--muted)">${String(t._id).slice(-8)}</td>
-        <td>${t.userId?.phoneNumber || t.userId || '—'}</td>
+        <td>${t.currentOwner?.phoneNumber || t.userId?.phoneNumber || t.currentOwner || t.userId || '—'}</td>
         <td>${t.eventId?.name || '—'}</td>
         <td>${badge(t.type)}</td>
         <td>${t.category}</td>
         <td>${badge(t.status)}</td>
         <td>${t.type === 'season' ? badge(t.verificationStatus || 'pending') : '—'}</td>
         <td>₹${t.totalAmount || 0}</td>
+        <td>
+          ${t.type === 'season' && t.verificationStatus !== 'approved'
+        ? `<button class="btn btn-sm btn-success" onclick="verifyTicketAction('${t._id}')">Verify</button>`
+        : '—'}
+        </td>
       </tr>`).join('');
-  } catch { tb.innerHTML = '<tr><td colspan="8" class="loading">Failed to load</td></tr>'; }
+  } catch { tb.innerHTML = '<tr><td colspan="9" class="loading">Failed to load</td></tr>'; }
+}
+
+async function verifyTicketAction(ticketId) {
+  if (!confirm('Mark this season pass as verified?')) return;
+  try {
+    await apiFetch(`/admin/tickets/${ticketId}/verify`, { method: 'PATCH' });
+    showToast('✅ Ticket verified successfully!');
+    loadTickets();
+  } catch (e) { }
 }
 
 // ── Users ─────────────────────────────────────────────────────────
@@ -362,6 +398,7 @@ async function loadUsers() {
       <tr>
         <td>${u.phoneNumber}</td>
         <td>${u.name || '—'}</td>
+        <td>${u.email || '—'}</td>
         <td>${badge(u.role)}</td>
         <td>${u.isVerified ? '<span class="badge badge-success">Yes</span>' : '<span class="badge badge-muted">No</span>'}</td>
         <td>${fmt(u.createdAt)}</td>
@@ -386,7 +423,7 @@ async function updateUserRole(id, role) {
     await apiFetch(`/admin/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) });
     showToast('✅ Role updated!');
     loadUsers();
-  } catch {}
+  } catch { }
 }
 
 // ── Sponsors ──────────────────────────────────────────────────────
@@ -419,21 +456,21 @@ async function loadSponsors() {
 
 async function saveSponsor() {
   const body = {
-    name:         document.getElementById('sponsorName').value,
-    contactName:  document.getElementById('sponsorContact').value,
-    phone:        document.getElementById('sponsorPhone').value,
-    email:        document.getElementById('sponsorEmail').value,
-    eventId:      document.getElementById('sponsorEventId').value,
-    limitType:    document.getElementById('sponsorLimitType').value,
-    ticketQuota:  Number(document.getElementById('sponsorQuota').value),
-    creditLimit:  Number(document.getElementById('sponsorCredit').value),
+    name: document.getElementById('sponsorName').value,
+    contactName: document.getElementById('sponsorContact').value,
+    phone: document.getElementById('sponsorPhone').value,
+    email: document.getElementById('sponsorEmail').value,
+    eventId: document.getElementById('sponsorEventId').value,
+    limitType: document.getElementById('sponsorLimitType').value,
+    ticketQuota: Number(document.getElementById('sponsorQuota').value),
+    creditLimit: Number(document.getElementById('sponsorCredit').value),
   };
   try {
     await apiFetch('/sponsors', { method: 'POST', body: JSON.stringify(body) });
     showToast('🤝 Sponsor created!');
     closeModal('sponsorModal');
     loadSponsors();
-  } catch {}
+  } catch { }
 }
 
 async function suspendSponsor(id) {
@@ -462,9 +499,106 @@ async function loadScanLogs() {
   } catch { tb.innerHTML = '<tr><td colspan="5" class="loading">Failed to load</td></tr>'; }
 }
 
+// ── Verifications ────────────────────────────────────────────────
+let pendingVerifications = [];
+async function loadVerifications() {
+  const tb = document.getElementById('verificationsTable');
+  tb.innerHTML = '<tr><td colspan="4" class="loading">Loading...</td></tr>';
+  try {
+    const data = await apiFetch('/admin/verifications');
+    pendingVerifications = data;
+    if (!data.length) {
+      tb.innerHTML = '<tr><td colspan="4" class="loading">No pending verifications.</td></tr>';
+      return;
+    }
+    tb.innerHTML = data.map(u => `
+      <tr>
+        <td><strong>${u.name || 'Guest'}</strong></td>
+        <td>${u.phoneNumber || u.phone}</td>
+        <td>${fmt(u.updatedAt)}</td>
+        <td>
+          <button class="btn btn-sm btn-primary" onclick="openVerifyDetail('${u._id}')">👁️ Review</button>
+        </td>
+      </tr>`).join('');
+  } catch (e) {
+    tb.innerHTML = '<tr><td colspan="4" class="loading">Failed to load verifications</td></tr>';
+  }
+}
+
+function openVerifyDetail(userId) {
+  const user = pendingVerifications.find(u => u._id === userId);
+  if (!user) return;
+
+  document.getElementById('verifyUserId').value = user._id;
+  document.getElementById('verifyReason').value = '';
+
+  const baseUrl = API.replace('/api', '');
+  document.getElementById('selfieImg').src = baseUrl + user.verificationSelfie;
+  document.getElementById('idCardImg').src = baseUrl + user.verificationIdCard;
+
+  openModal('verifyDetailModal');
+}
+
+async function updateUserVerification(status) {
+  const id = document.getElementById('verifyUserId').value;
+  const reason = document.getElementById('verifyReason').value;
+
+  if (status === 'rejected' && !reason) {
+    showToast('⚠️ Please provide a reason for rejection', 'error');
+    return;
+  }
+
+  try {
+    await apiFetch(`/admin/verifications/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, reason })
+    });
+
+    showToast(`✅ User verification ${status}!`);
+    closeModal('verifyDetailModal');
+    loadVerifications();
+  } catch (e) { }
+}
+
+async function updateSettings(body) {
+  try {
+    await apiFetch('/admin/settings', { method: 'PATCH', body: JSON.stringify(body) });
+    showToast('⚙️ Settings updated!');
+  } catch { }
+}
+
+async function loadSettings() {
+  try {
+    const s = await apiFetch('/admin/settings');
+    if (s) {
+      document.getElementById('setRazorpayKeyId').value = s.razorpayKeyId || '';
+      document.getElementById('setRazorpayKeySecret').value = s.razorpayKeySecret || '';
+      document.getElementById('setDefaultGst').value = s.defaultGstPercentage || 18;
+    } else {
+      console.warn('Settings not found on server');
+    }
+  } catch (e) {
+    console.error('Failed to load settings:', e);
+    showToast('❌ Failed to load settings', 'error');
+  }
+}
+
+async function saveSettings() {
+  const body = {
+    razorpayKeyId: document.getElementById('setRazorpayKeyId').value,
+    razorpayKeySecret: document.getElementById('setRazorpayKeySecret').value,
+    defaultGstPercentage: Number(document.getElementById('setDefaultGst').value),
+  };
+  await updateSettings(body);
+}
+
+function zoomImage(src) {
+  window.open(src, '_blank');
+}
+
 // ── Dropdown Helper ──────────────────────────────────────────────
 function populateEventDropdowns(events) {
-  const dropdowns = ['zoneEventFilter','zoneEventId','sponsorEventId','ticketEventFilter','scanEventFilter'];
+  const dropdowns = ['zoneEventFilter', 'zoneEventId', 'sponsorEventId', 'ticketEventFilter', 'scanEventFilter'];
   dropdowns.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -481,9 +615,9 @@ let salesChartInstance = null;
 function renderSalesChart(data) {
   const ctx = document.getElementById('salesChart');
   if (!ctx) return;
-  
+
   if (salesChartInstance) salesChartInstance.destroy();
-  
+
   salesChartInstance = new Chart(ctx, {
     type: 'line',
     data: {
@@ -515,9 +649,10 @@ let allTickets = [];
 function filterUsers() {
   const q = document.getElementById('userSearch').value.toLowerCase();
   const tb = document.getElementById('usersTable');
-  const filtered = allUsers.filter(u => 
-    u.phoneNumber.toLowerCase().includes(q) || 
-    (u.name && u.name.toLowerCase().includes(q))
+  const filtered = allUsers.filter(u =>
+    u.phoneNumber.toLowerCase().includes(q) ||
+    (u.name && u.name.toLowerCase().includes(q)) ||
+    (u.email && u.email.toLowerCase().includes(q))
   );
   renderUserTable(filtered);
 }
@@ -525,8 +660,8 @@ function filterUsers() {
 function filterTickets() {
   const q = document.getElementById('ticketSearch').value.toLowerCase();
   const tb = document.getElementById('ticketsTable');
-  const filtered = allTickets.filter(t => 
-    String(t._id).toLowerCase().includes(q) || 
+  const filtered = allTickets.filter(t =>
+    String(t._id).toLowerCase().includes(q) ||
     (t.userId?.phoneNumber && t.userId?.phoneNumber.toLowerCase().includes(q))
   );
   renderTicketTable(filtered);
@@ -538,6 +673,7 @@ function renderUserTable(users) {
     <tr>
       <td>${u.phoneNumber}</td>
       <td>${u.name || '—'}</td>
+      <td>${u.email || '—'}</td>
       <td>${badge(u.role)}</td>
       <td>${u.isVerified ? '<span class="badge badge-success">Yes</span>' : '<span class="badge badge-muted">No</span>'}</td>
       <td>${fmt(u.createdAt)}</td>
@@ -559,28 +695,33 @@ function renderTicketTable(tickets) {
   tb.innerHTML = tickets.map(t => `
     <tr>
       <td style="font-family:monospace;font-size:11px;color:var(--muted)">${String(t._id).slice(-8)}</td>
-      <td>${t.userId?.phoneNumber || t.userId || '—'}</td>
+      <td>${t.currentOwner?.phoneNumber || t.userId?.phoneNumber || t.currentOwner || t.userId || '—'}</td>
       <td>${t.eventId?.name || '—'}</td>
       <td>${badge(t.type)}</td>
       <td>${t.category}</td>
       <td>${badge(t.status)}</td>
       <td>${t.type === 'season' ? badge(t.verificationStatus || 'pending') : '—'}</td>
       <td>₹${t.totalAmount || 0}</td>
+      <td>
+        ${t.type === 'season' && t.verificationStatus !== 'approved'
+      ? `<button class="btn btn-sm btn-success" onclick="verifyTicketAction('${t._id}')">Verify</button>`
+      : '—'}
+      </td>
     </tr>`).join('');
 }
 
 // ── API Health Check ─────────────────────────────────────────────
 async function checkApiStatus() {
-  const dot  = document.querySelector('.status-dot');
+  const dot = document.querySelector('.status-dot');
   const text = document.getElementById('apiStatusText');
   try {
     await fetch(API + '/events', { signal: AbortSignal.timeout(3000) });
     dot.style.background = 'var(--green)';
-    dot.style.boxShadow  = '0 0 8px var(--green)';
+    dot.style.boxShadow = '0 0 8px var(--green)';
     text.textContent = 'Connected';
   } catch {
     dot.style.background = '#FF4444';
-    dot.style.boxShadow  = '0 0 8px #FF4444';
+    dot.style.boxShadow = '0 0 8px #FF4444';
     text.textContent = 'Offline';
   }
 }

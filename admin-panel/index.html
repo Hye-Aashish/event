@@ -32,11 +32,17 @@
       <a href="#" class="nav-item" data-page="users" onclick="navigate('users',this)">
         <span class="nav-icon">👥</span><span>Users</span>
       </a>
+      <a href="#" class="nav-item" data-page="verifications" onclick="navigate('verifications',this)">
+        <span class="nav-icon">🆔</span><span>Verifications</span>
+      </a>
       <a href="#" class="nav-item" data-page="sponsors" onclick="navigate('sponsors',this)">
         <span class="nav-icon">🤝</span><span>Sponsors</span>
       </a>
       <a href="#" class="nav-item" data-page="scanlogs" onclick="navigate('scanlogs',this)">
         <span class="nav-icon">📡</span><span>Scan Logs</span>
+      </a>
+      <a href="#" class="nav-item" data-page="settings" onclick="navigate('settings',this)">
+        <span class="nav-icon">⚙️</span><span>Settings</span>
       </a>
     </nav>
     <div class="sidebar-footer">
@@ -135,7 +141,7 @@
           </div>
           <div class="table-wrap">
             <table class="data-table">
-              <thead><tr><th>Zone Name</th><th>Event</th><th>Capacity</th><th>Current</th><th>Status</th><th>Actions</th></tr></thead>
+              <thead><tr><th>Zone Name</th><th>Event</th><th>Capacity</th><th>Current</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
               <tbody id="zonesTable"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
             </table>
           </div>
@@ -167,8 +173,8 @@
           </div>
           <div class="table-wrap">
             <table class="data-table">
-              <thead><tr><th>ID</th><th>User</th><th>Event</th><th>Type</th><th>Category</th><th>Status</th><th>Verified</th><th>Amount</th></tr></thead>
-              <tbody id="ticketsTable"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody>
+              <thead><tr><th>ID</th><th>User</th><th>Event</th><th>Type</th><th>Category</th><th>Status</th><th>Verified</th><th>Amount</th><th>Actions</th></tr></thead>
+              <tbody id="ticketsTable"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -183,8 +189,8 @@
           </div>
           <div class="table-wrap">
             <table class="data-table">
-              <thead><tr><th>Phone</th><th>Name</th><th>Role</th><th>Verified</th><th>Joined</th><th>Actions</th></tr></thead>
-              <tbody id="usersTable"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+              <thead><tr><th>Phone</th><th>Name</th><th>Email</th><th>Role</th><th>Verified</th><th>Joined</th><th>Actions</th></tr></thead>
+              <tbody id="usersTable"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -222,6 +228,49 @@
               <thead><tr><th>Time</th><th>Ticket</th><th>Status</th><th>Zone</th><th>Message</th></tr></thead>
               <tbody id="scanLogsTable"><tr><td colspan="5" class="loading">Select an event to load logs</td></tr></tbody>
             </table>
+          </div>
+        </div>
+      </div>
+      <!-- Verifications Page -->
+      <div class="page" id="page-verifications">
+        <div class="glass-card">
+          <div class="card-header">
+            <h3>Pending Verifications</h3>
+            <button class="btn btn-sm" onclick="loadVerifications()">Refresh</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>User</th><th>Phone</th><th>Submitted At</th><th>Actions</th></tr></thead>
+              <tbody id="verificationsTable"><tr><td colspan="4" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings Page -->
+      <div class="page" id="page-settings">
+        <div class="glass-card" style="max-width: 600px;">
+          <div class="card-header">
+            <h3>System Settings</h3>
+          </div>
+          <div class="modal-body p-0">
+            <div class="form-grid">
+              <div class="form-group full">
+                <label>Razorpay Key ID</label>
+                <input id="setRazorpayKeyId" type="text" class="form-input" placeholder="rzp_test_..." />
+              </div>
+              <div class="form-group full">
+                <label>Razorpay Key Secret</label>
+                <input id="setRazorpayKeySecret" type="password" class="form-input" placeholder="••••••••••••" />
+              </div>
+              <div class="form-group full">
+                <label>Default GST Percentage (%)</label>
+                <input id="setDefaultGst" type="number" class="form-input" value="18" />
+              </div>
+            </div>
+            <div class="mt-4">
+              <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+            </div>
           </div>
         </div>
       </div>
@@ -265,6 +314,12 @@
               <option value="true">Yes</option>
             </select>
           </div>
+          <div class="form-group"><label>GST Inclusive?</label>
+            <select id="eventGstInclusive" class="form-input">
+              <option value="false">Exclusive (Add on top)</option>
+              <option value="true">Inclusive (Included in price)</option>
+            </select>
+          </div>
           <div class="form-group"><label>Max Sponsor Tickets</label><input id="eventMaxSponsor" type="number" class="form-input" value="100" /></div>
           <div class="form-group full"><label>Ticket Pricing (Regular VIP/General/Premium)</label>
             <div class="pricing-row">
@@ -304,11 +359,13 @@
             <select id="zoneEventId" class="form-input"><option value="">Select Event</option></select>
           </div>
           <div class="form-group"><label>Capacity</label><input id="zoneCapacity" type="number" class="form-input" placeholder="2000" /></div>
-          <div class="form-group"><label>Price (₹)</label><input id="zonePrice" type="number" class="form-input" placeholder="500" /></div>
+          <div class="form-group"><label>Daily Pass Price (₹)</label><input id="zoneDailyPrice" type="number" class="form-input" placeholder="500" /></div>
+          <div class="form-group"><label>Season Pass Price (₹)</label><input id="zoneSeasonPrice" type="number" class="form-input" placeholder="4000" /></div>
           <div class="form-group"><label>Zone Type</label>
             <select id="zoneType" class="form-input">
-              <option value="daily">Daily Pass</option>
-              <option value="season">Season Pass</option>
+              <option value="daily">Daily Only</option>
+              <option value="season">Season Only</option>
+              <option value="both">Both Only</option>
             </select>
           </div>
           <div class="form-group"><label>Display Color</label><input id="zoneColor" type="color" class="form-input" value="#FF0080" /></div>
@@ -367,6 +424,42 @@
   <!-- Toast Notification -->
   <div class="toast" id="toast"></div>
 
+  <!-- Verification Detail Modal -->
+  <div class="modal-overlay" id="verifyDetailModal">
+    <div class="modal" style="max-width: 800px;">
+      <div class="modal-header">
+        <h3>Review Identity Documents</h3>
+        <button onclick="closeModal('verifyDetailModal')" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="verifyUserId" />
+        <div class="verify-preview-grid">
+          <div class="verify-doc">
+            <h4>Selfie Photo</h4>
+            <div id="selfieContainer" class="doc-img-container">
+              <img src="" id="selfieImg" onclick="zoomImage(this.src)" />
+            </div>
+          </div>
+          <div class="verify-doc">
+            <h4>ID Card Proof</h4>
+            <div id="idCardContainer" class="doc-img-container">
+              <img src="" id="idCardImg" onclick="zoomImage(this.src)" />
+            </div>
+          </div>
+        </div>
+        <div class="form-group mt-4">
+          <label>Admin Note / Rejection Reason</label>
+          <textarea id="verifyReason" class="form-input" placeholder="e.g. ID blurry, selfie doesn't match ID..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" style="border-color: var(--error); color: var(--error);" onclick="updateUserVerification('rejected')">Reject Submission</button>
+        <button class="btn btn-success" onclick="updateUserVerification('approved')">Approve Verification</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sponsor Modal -->
   <script src="app.js"></script>
 </body>
 </html>

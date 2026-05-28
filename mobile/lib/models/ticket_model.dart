@@ -3,18 +3,19 @@ class TicketModel {
   final String userId;
   final String eventId;
   final String zoneId;
-  final String ticketType;
+  final String type; // 'regular' or 'season'
+  final String? date; // YYYY-MM-DD for regular passes
   final String status;
-  final double pricePaid;
-  final String qrCode;
-  final bool isTransferred;
+  final double basePrice;
+  final double gstAmount;
+  final double totalAmount;
+  final String qrHash;
   final bool isScanned;
-  final DateTime? scannedAt;
-  final DateTime purchasedAt;
+  final DateTime? lastScannedAt;
+  final DateTime createdAt;
   final String? eventName;
   final String? zoneName;
   final String? zoneType;
-  final String? eventDate;
   final String? eventVenue;
 
   TicketModel({
@@ -22,24 +23,27 @@ class TicketModel {
     required this.userId,
     required this.eventId,
     required this.zoneId,
-    required this.ticketType,
+    required this.type,
+    this.date,
     required this.status,
-    required this.pricePaid,
-    required this.qrCode,
-    required this.isTransferred,
+    required this.basePrice,
+    required this.gstAmount,
+    required this.totalAmount,
+    required this.qrHash,
     required this.isScanned,
-    this.scannedAt,
-    required this.purchasedAt,
+    this.lastScannedAt,
+    required this.createdAt,
     this.eventName,
     this.zoneName,
     this.zoneType,
-    this.eventDate,
     this.eventVenue,
   });
 
   factory TicketModel.fromJson(Map<String, dynamic> json) {
-    final event = json['eventId'] is Map ? json['eventId'] as Map<String, dynamic> : null;
-    final zone = json['zoneId'] is Map ? json['zoneId'] as Map<String, dynamic> : null;
+    final event =
+        json['eventId'] is Map ? json['eventId'] as Map<String, dynamic> : null;
+    final zone =
+        json['zoneId'] is Map ? json['zoneId'] as Map<String, dynamic> : null;
 
     return TicketModel(
       id: json['_id'] ?? json['id'] ?? '',
@@ -48,31 +52,40 @@ class TicketModel {
           : json['userId'] ?? '',
       eventId: event?['_id'] ?? json['eventId'] ?? '',
       zoneId: zone?['_id'] ?? json['zoneId'] ?? '',
-      ticketType: json['ticketType'] ?? 'single',
+      type: json['type'] ?? 'regular',
+      date: json['date'],
       status: json['status'] ?? 'active',
-      pricePaid: (json['pricePaid'] as num?)?.toDouble() ?? 0.0,
-      qrCode: json['qrCode'] ?? '',
-      isTransferred: json['isTransferred'] ?? false,
+      basePrice: (json['basePrice'] as num?)?.toDouble() ?? 0.0,
+      gstAmount: (json['gstAmount'] as num?)?.toDouble() ?? 0.0,
+      totalAmount: (json['totalAmount'] as num?)?.toDouble() ?? 0.0,
+      qrHash: json['qrHash'] ?? '',
       isScanned: json['isScanned'] ?? false,
-      scannedAt: json['scannedAt'] != null
-          ? DateTime.tryParse(json['scannedAt'])
+      lastScannedAt: json['lastScannedAt'] != null
+          ? DateTime.tryParse(json['lastScannedAt'])
           : null,
-      purchasedAt: json['purchasedAt'] != null
-          ? DateTime.tryParse(json['purchasedAt']) ?? DateTime.now()
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt']) ?? DateTime.now()
           : DateTime.now(),
       eventName: event?['name'] ?? json['eventName'],
       zoneName: zone?['name'] ?? json['zoneName'],
       zoneType: zone?['type'] ?? json['zoneType'],
-      eventDate: event?['date'] ?? json['eventDate'],
       eventVenue: event?['venue'] ?? json['eventVenue'],
     );
   }
 
+  // Legacy mappings for backward compatibility with existing screens
+  String get ticketType => type;
+  double get pricePaid => totalAmount;
+  String get qrCode => qrHash;
+  bool get isTransferred => status == 'transferred';
+  DateTime? get scannedAt => lastScannedAt;
+  DateTime get purchasedAt => createdAt;
+
   bool get isActive => status == 'active' && !isScanned;
 
-  bool get isSeasonPass => ticketType == 'season';
+  bool get isSeasonPass => type == 'season';
 
-  String get formattedPrice => '₹${pricePaid.toStringAsFixed(0)}';
+  String get formattedPrice => '₹${totalAmount.toStringAsFixed(0)}';
 
   String get statusDisplay {
     if (isScanned) return 'Used';
@@ -84,8 +97,18 @@ class TicketModel {
 
   String get formattedDate {
     final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
     ];
     return '${purchasedAt.day} ${months[purchasedAt.month - 1]} ${purchasedAt.year}';
   }

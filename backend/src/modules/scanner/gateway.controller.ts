@@ -15,6 +15,11 @@ export class ScanGatewayController {
     return this.scannerService.validateScan(payload, scannerId);
   }
 
+  @Post('verify')
+  handleVerify(@Body() payload: any) {
+    return this.scannerService.validateScan(payload, undefined, true);
+  }
+
   @Get('logs/:eventId')
   getLogs(@Param('eventId') eventId: string) {
     return this.scannerService.getScanLogs(eventId);

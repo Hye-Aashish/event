@@ -13,19 +13,25 @@ async function bootstrap() {
   app.enableCors({ origin: '*' });
 
   // Serve static files BEFORE setting global prefix
-  app.useStaticAssets(path.resolve('D:\\event app\\app'), { prefix: '/app' });
-  app.useStaticAssets(path.resolve('D:\\event app\\admin-panel'), { prefix: '/admin' });
+  app.useStaticAssets(path.join(process.cwd(), '..', 'app'), { prefix: '/app' });
+  app.useStaticAssets(path.join(process.cwd(), '..', 'admin-panel'), { prefix: '/admin' });
 
   // Create uploads folder if missing
   const fs = require('fs');
-  const uploadPath = path.resolve('D:\\event app\\backend\\uploads');
-  if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath);
+  const uploadPath = path.join(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
   app.useStaticAssets(uploadPath, { prefix: '/uploads' });
+
+  const port = process.env.PORT || 3000;
+  
+  // Increase body limits for large image uploads
+  const express = require('express');
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
   app.setGlobalPrefix('api');
 
-  const port = process.env.PORT || 3000;
   await app.listen(port);
 
   console.log('\n🚀 Navratri Event System running!\n');

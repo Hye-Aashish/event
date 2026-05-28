@@ -14,6 +14,7 @@ import { Event, EventSchema } from './schemas/event.schema';
 import { Zone, ZoneSchema } from './schemas/zone.schema';
 import { Ticket, TicketSchema } from './schemas/ticket.schema';
 import { Sponsor, SponsorSchema } from './schemas/sponsor.schema';
+import { Settings, SettingsSchema } from './schemas/settings.schema';
 import { ScanLog, ScanLogSchema, TransferLog, TransferLogSchema, AdminLog, AdminLogSchema } from './schemas/log.schema';
 
 // Auth
@@ -50,13 +51,13 @@ import { ZonesController } from './modules/zones/zones.controller';
     // Serve User App at http://localhost:3000/app
     ServeStaticModule.forRoot(
       {
-        rootPath: 'D:\\event app\\app',
+        rootPath: join(__dirname, '..', '..', 'app'),
         serveRoot: '/app',
         exclude: ['/api/(.*)'],
       },
       // Serve Admin Panel at http://localhost:3000/admin
       {
-        rootPath: 'D:\\event app\\admin-panel',
+        rootPath: join(__dirname, '..', '..', 'admin-panel'),
         serveRoot: '/admin',
         exclude: ['/api/(.*)'],
       },
@@ -72,6 +73,7 @@ import { ZonesController } from './modules/zones/zones.controller';
       { name: Zone.name,        schema: ZoneSchema },
       { name: Ticket.name,      schema: TicketSchema },
       { name: Sponsor.name,     schema: SponsorSchema },
+      { name: Settings.name,    schema: SettingsSchema },
       { name: ScanLog.name,     schema: ScanLogSchema },
       { name: TransferLog.name, schema: TransferLogSchema },
       { name: AdminLog.name,    schema: AdminLogSchema },

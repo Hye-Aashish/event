@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
-import 'theme/app_theme.dart';
+import 'models/event_model.dart';
 import 'providers/auth_provider.dart';
-import 'providers/ticket_provider.dart';
 import 'providers/event_provider.dart';
-import 'screens/splash_screen.dart';
+import 'providers/ticket_provider.dart';
+import 'screens/event_detail_screen.dart';
+import 'screens/events_screen.dart';
+import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/otp_screen.dart';
-import 'screens/home_screen.dart';
-import 'screens/tickets_screen.dart';
-import 'screens/ticket_detail_screen.dart';
-import 'screens/verification_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/register_screen.dart';
 import 'screens/scanner_screen.dart';
-import 'screens/events_screen.dart';
+import 'screens/splash_screen.dart';
+import 'screens/ticket_detail_screen.dart';
+import 'screens/tickets_screen.dart';
+import 'screens/verification_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -57,11 +59,11 @@ class NavratriApp extends StatelessWidget {
         theme: AppTheme.darkTheme,
         builder: (context, child) {
           ErrorWidget.builder = (details) => Scaffold(
-            body: Center(
-              child: Text('UI Error: ${details.exception}', 
-              style: const TextStyle(color: Colors.red)),
-            ),
-          );
+                body: Center(
+                  child: Text('UI Error: ${details.exception}',
+                      style: const TextStyle(color: Colors.red)),
+                ),
+              );
           return child!;
         },
         initialRoute: '/splash',
@@ -69,6 +71,7 @@ class NavratriApp extends StatelessWidget {
           '/splash': (_) => const SplashScreen(),
           '/login': (_) => const LoginScreen(),
           '/otp': (_) => const OtpScreen(),
+          '/register': (_) => const RegisterScreen(),
           '/home': (_) => const HomeScreen(),
           '/tickets': (_) => const TicketsScreen(),
           '/ticket-detail': (_) => const TicketDetailScreen(),
@@ -76,6 +79,15 @@ class NavratriApp extends StatelessWidget {
           '/profile': (_) => const ProfileScreen(),
           '/scanner': (_) => const ScannerScreen(),
           '/events': (_) => const EventsScreen(),
+        },
+        onGenerateRoute: (settings) {
+          if (settings.name == '/event-detail') {
+            final event = settings.arguments as EventModel;
+            return MaterialPageRoute(
+              builder: (context) => EventDetailScreen(event: event),
+            );
+          }
+          return null;
         },
       ),
     );

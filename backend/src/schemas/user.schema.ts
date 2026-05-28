@@ -9,11 +9,26 @@ export class User extends Document {
   @Prop()
   name: string;
 
+  @Prop()
+  email: string;
+
   @Prop({ default: 'user', enum: ['user', 'admin', 'scanner', 'zone_manager'] })
   role: string;
 
   @Prop({ default: false })
   isVerified: boolean;
+
+  @Prop({ default: 'none', enum: ['none', 'pending', 'approved', 'rejected'] })
+  verificationStatus: string;
+
+  @Prop()
+  verificationSelfie: string;
+
+  @Prop()
+  verificationIdCard: string;
+
+  @Prop()
+  verificationReason: string;
 
   @Prop()
   lastLogin: Date;

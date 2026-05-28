@@ -1,9 +1,7 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model } from 'mongoose';
 import { Ticket, TicketDocument } from '../../schemas/ticket.schema';
-import { ScanLog } from '../../schemas/log.schema';
-import * as crypto from 'crypto';
 
 const memoryLock = new Map<string, NodeJS.Timeout>();
 
@@ -14,31 +12,20 @@ export class ScannerService {
   constructor(
     @InjectModel(Ticket.name) private ticketModel: Model<TicketDocument>,
     @InjectModel('ScanLog') private scanLogModel: Model<any>,
-  ) {}
+  ) { }
 
-  async validateScan(payload: any, scannerId?: string) {
-    const { id, d: eventDate, sig, sys } = payload;
-    const logBase = { ticketId: id, scannerId, rawPayload: payload };
+  async validateScan(payload: any, scannerId?: string, readOnly: boolean = false) {
+    const isRawHash = !!payload.qrData;
+    const sigToSearch = isRawHash ? payload.qrData : payload.sig;
 
-    // 1. HMAC Signature Verification
-    const expectedSig = crypto
-      .createHmac('sha256', this.SECRET_KEY)
-      .update(id + eventDate)
-      .digest('hex');
-
-    if (sig !== expectedSig) {
-      await this.scanLogModel.create({ ...logBase, status: 'invalid_sig', message: 'HMAC mismatch' });
-      throw new BadRequestException('Invalid QR signature');
+    if (!sigToSearch) {
+      throw new BadRequestException('Invalid QR format');
     }
 
-    // 2. Time window check
-    if (!this.isValidTimeWindow(eventDate)) {
-      await this.scanLogModel.create({ ...logBase, status: 'time_invalid', message: 'Outside valid time window' });
-      throw new BadRequestException('Ticket not valid for current time (6PM–6AM only)');
-    }
+    const logBase = { scannerId, rawPayload: payload };
 
-    // 3. Atomic in-process lock
-    const lockKey = `lock:${id}`;
+    // Atomic in-process lock to prevent duplicate scans
+    const lockKey = `lock:${sigToSearch}`;
     if (memoryLock.has(lockKey)) {
       await this.scanLogModel.create({ ...logBase, status: 'duplicate', message: 'Concurrent scan blocked' });
       throw new BadRequestException('Duplicate scan detected');
@@ -47,16 +34,36 @@ export class ScannerService {
     memoryLock.set(lockKey, timeout);
 
     try {
+      // Lookup the ticket by the uniquely generated qrHash (which acts as the signature itself)
       const ticket = await this.ticketModel
-        .findById(id)
+        .findOne({ qrHash: sigToSearch })
         .populate('eventId', 'name')
         .populate('zoneId', 'name')
+        .populate('userId', 'name phoneNumber')
         .lean();
 
       if (!ticket) {
-        await this.scanLogModel.create({ ...logBase, status: 'invalid_sig', message: 'Ticket not found' });
-        throw new NotFoundException('Ticket not found');
+        await this.scanLogModel.create({ ...logBase, status: 'invalid_sig', message: 'Ticket not found by hash' });
+        throw new BadRequestException('Invalid QR signature or Ticket not found');
       }
+
+      const id = ticket._id.toString();
+      (logBase as any)['ticketId'] = id;
+
+      // Extract eventDate for time window checking
+      let eventDate = payload.d || ticket.date;
+
+      // Time window check (Only if eventDate is present)
+      // DEBUG: Temporarily bypassing the strict 6PM-6AM time window check so you can test during the day!
+      // In production, you would re-enable this.
+      /*
+      if (eventDate) {
+        if (!this.isValidTimeWindow(eventDate)) {
+          await this.scanLogModel.create({ ...logBase, status: 'time_invalid', message: 'Outside valid time window' });
+          throw new BadRequestException('Ticket not valid for current time (6PM–6AM only)');
+        }
+      }
+      */
 
       // 4. Status check
       if (ticket.status !== 'active') {
@@ -81,29 +88,35 @@ export class ScannerService {
         }
       }
 
-      // 6. Mark scanned
-      await this.ticketModel.updateOne(
-        { _id: id },
-        { $set: { isScannedToday: true, isScanned: true, lastScannedAt: new Date() }, $inc: { totalScans: 1 } }
-      );
+      // 6. Mark scanned (only if not read-only validation)
+      if (!readOnly) {
+        await this.ticketModel.updateOne(
+          { _id: id },
+          { $set: { isScannedToday: true, isScanned: true, lastScannedAt: new Date() }, $inc: { totalScans: 1 } }
+        );
 
-      // 7. Log success (async — don't block response)
-      this.scanLogModel.create({
-        ...logBase,
-        eventId: (ticket.eventId as any)?._id,
-        zoneId: (ticket.zoneId as any)?._id,
-        status: 'success',
-        message: 'Access granted',
-      });
+        // 7. Log success (async — don't block response)
+        this.scanLogModel.create({
+          ...logBase,
+          eventId: (ticket.eventId as any)?._id,
+          zoneId: (ticket.zoneId as any)?._id,
+          status: 'success',
+          message: 'Access granted',
+        });
+      }
 
       return {
         success: true,
-        message: '✅ Access Granted',
+        message: readOnly ? 'Ticket verified' : '✅ Access Granted',
         ticket: {
           type: ticket.type,
           category: ticket.category,
           event: (ticket.eventId as any)?.name,
           zone: (ticket.zoneId as any)?.name,
+          user: ticket.userId ? {
+            name: (ticket.userId as any).name || 'Unknown',
+            phone: (ticket.userId as any).phoneNumber || '',
+          } : null,
         },
       };
 

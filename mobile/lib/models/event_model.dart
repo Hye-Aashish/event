@@ -2,52 +2,59 @@ class EventModel {
   final String id;
   final String name;
   final String description;
-  final DateTime date;
+  final List<String> eventDates;
   final String venue;
   final String? imageUrl;
   final bool isActive;
+  final bool gstEnabled;
+  final bool gstInclusive;
+  final double gstPercentage;
   final List<ZoneModel> zones;
 
   EventModel({
     required this.id,
     required this.name,
     required this.description,
-    required this.date,
+    required this.eventDates,
     required this.venue,
     this.imageUrl,
     required this.isActive,
+    required this.gstEnabled,
+    required this.gstInclusive,
+    required this.gstPercentage,
     required this.zones,
   });
 
   factory EventModel.fromJson(Map<String, dynamic> json) {
-    // Determine the first date safely
-    DateTime parsedDate = DateTime.now();
-    if (json['eventDates'] != null && (json['eventDates'] as List).isNotEmpty) {
-      parsedDate = DateTime.tryParse(json['eventDates'][0]) ?? DateTime.now();
-    } else if (json['date'] != null) {
-      parsedDate = DateTime.tryParse(json['date']) ?? DateTime.now();
-    }
-
     return EventModel(
       id: json['_id'] ?? json['id'] ?? '',
       name: json['name'] ?? 'Unnamed Event',
       description: json['description'] ?? '',
-      date: parsedDate,
+      eventDates: List<String>.from(json['eventDates'] ?? []),
       venue: json['venue'] ?? 'TBA',
       imageUrl: json['imageUrl'] ?? json['bannerUrl'] ?? json['image'],
       isActive: json['isActive'] ?? true,
+      gstEnabled: json['gstEnabled'] ?? false,
+      gstInclusive: json['gstInclusive'] ?? false,
+      gstPercentage: (json['gstPercentage'] as num?)?.toDouble() ?? 18.0,
       zones: (json['zones'] as List<dynamic>? ?? [])
           .map((z) => ZoneModel.fromJson(z as Map<String, dynamic>))
           .toList(),
     );
   }
 
+  DateTime get date => eventDates.isNotEmpty 
+      ? DateTime.tryParse(eventDates[0]) ?? DateTime.now() 
+      : DateTime.now();
+
   String get formattedDate {
+    if (eventDates.isEmpty) return 'TBA';
+    final d = date;
     final months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
 
   String get dayOfWeek {
@@ -60,7 +67,8 @@ class ZoneModel {
   final String id;
   final String name;
   final String type;
-  final double price;
+  final double dailyPrice;
+  final double seasonPrice;
   final int capacity;
   final int availableSeats;
   final List<String> features;
@@ -69,7 +77,8 @@ class ZoneModel {
     required this.id,
     required this.name,
     required this.type,
-    required this.price,
+    required this.dailyPrice,
+    required this.seasonPrice,
     required this.capacity,
     required this.availableSeats,
     required this.features,
@@ -79,8 +88,9 @@ class ZoneModel {
     return ZoneModel(
       id: json['_id'] ?? json['id'] ?? '',
       name: json['name'] ?? '',
-      type: json['type'] ?? 'general',
-      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      type: json['type'] ?? 'daily',
+      dailyPrice: (json['dailyPrice'] as num?)?.toDouble() ?? 0.0,
+      seasonPrice: (json['seasonPrice'] as num?)?.toDouble() ?? 0.0,
       capacity: json['capacity'] ?? 0,
       availableSeats: json['availableSeats'] ?? json['available'] ?? 0,
       features: List<String>.from(json['features'] ?? []),
@@ -89,5 +99,7 @@ class ZoneModel {
 
   bool get isAvailable => availableSeats > 0;
 
-  String get formattedPrice => '₹${price.toStringAsFixed(0)}';
+  double priceFor(String passType) => passType == 'season' ? seasonPrice : dailyPrice;
+
+  String formattedPriceFor(String passType) => '₹${priceFor(passType).toStringAsFixed(0)}';
 }

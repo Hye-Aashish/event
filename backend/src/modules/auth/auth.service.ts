@@ -27,6 +27,7 @@ export class AuthService {
     const isTestOtp = otp === '123456';
     
     if (!isTestOtp && (!record || record.otp !== otp || Date.now() > record.expiry)) {
+      console.warn(`⚠️ Failed OTP verification attempt for ${phoneNumber}`);
       throw new UnauthorizedException('Invalid or expired OTP');
     }
     otpStore.delete(phoneNumber);
@@ -34,13 +35,52 @@ export class AuthService {
     // Auto-register if new user
     let user = await this.userModel.findOne({ phoneNumber });
     if (!user) {
+      console.log(`🆕 Creating new user for ${phoneNumber}`);
       user = await this.userModel.create({ phoneNumber, deviceId });
+    } else {
+      console.log(`🔑 Login successful for ${phoneNumber}`);
     }
 
     const payload = { sub: user._id, phone: user.phoneNumber, role: user.role };
     return {
       access_token: this.jwtService.sign(payload),
       user,
+      isNewUser: !user.name,
     };
+  }
+
+  async getProfile(userId: string) {
+    const user = await this.userModel.findById(userId);
+    if (!user) throw new UnauthorizedException('User not found');
+    return { success: true, user };
+  }
+
+  async updateProfile(userId: string, data: { name?: string; email?: string; role?: string }) {
+    const user = await this.userModel.findByIdAndUpdate(
+      userId,
+      { $set: data },
+      { new: true },
+    );
+    if (!user) throw new UnauthorizedException('User not found');
+    return { success: true, user };
+  }
+
+  async submitVerification(userId: string, selfieUrl: string, idCardUrl: string) {
+    console.log(`📤 Processing verification submission for user: ${userId}`);
+    const user = await this.userModel.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          verificationStatus: 'pending',
+          verificationSelfie: selfieUrl,
+          verificationIdCard: idCardUrl,
+          verificationReason: '', // Clear any previous reason
+        },
+      },
+      { new: true },
+    );
+    if (!user) throw new UnauthorizedException('User not found');
+    console.log(`✅ Verification state set to: pending for user ${userId}`);
+    return { success: true, user };
   }
 }

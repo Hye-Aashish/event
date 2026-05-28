@@ -33,6 +33,9 @@ export class Event {
   gstPercentage: number;
 
   @Prop({ default: false })
+  gstInclusive: boolean;
+
+  @Prop({ default: false })
   autoVerifySeasonPass: boolean;
 
   @Prop({ type: Object })

@@ -43,6 +43,7 @@ Edit `lib/services/api_service.dart` to change the backend URL:
    ```powershell
    cd mobile
    flutter pub get
+   adb reverse tcp:3000 tcp:3000
    ```
 3. Use Test OTP: **`123456`**
 
@@ -52,3 +53,4 @@ Edit `lib/services/api_service.dart` to change the backend URL:
 - `lib/screens/`: App screens (shared)
 - `lib/providers/`: State management (shared)
 - `lib/theme/`: Custom Neon Navratri Theme
+

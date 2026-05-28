@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/gradient_button.dart';
+import '../widgets/shimmer_block.dart';
+import '../widgets/status_badge.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -12,158 +16,227 @@ class ProfileScreen extends StatelessWidget {
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
 
-    return Container(
-      decoration: const BoxDecoration(gradient: AppColors.gradientBackground),
-      child: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-                child: const Text('Profile',
-                    style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary)),
+    return Scaffold(
+      body: Container(
+        decoration:
+            const BoxDecoration(gradient: AppColors.gradientBackground),
+        child: Stack(
+          children: [
+            // Glow blobs
+            Positioned(
+              top: -80,
+              right: -60,
+              child: Container(
+                width: 260,
+                height: 260,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.secondary.withOpacity(0.07),
+                ),
               ),
             ),
-
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
-                child: Column(
-                  children: [
-                    // Avatar
-                    Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: AppColors.gradientPrimary,
-                        boxShadow: [
-                          BoxShadow(
-                              color: AppColors.primary.withOpacity(0.35),
-                              blurRadius: 20,
-                              spreadRadius: 3),
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          _initials(user?.name),
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 30,
-                              fontWeight: FontWeight.bold),
-                        ),
+            SafeArea(
+              bottom: false,
+              child: RefreshIndicator(
+                onRefresh: () => auth.refreshProfile(),
+                color: AppColors.primary,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    // ── Header ───────────────────────────────────────
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(24, 20, 24, 0),
+                        child: Text('Profile',
+                            style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textPrimary,
+                                letterSpacing: -0.8)),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Text(user?.name ?? 'Guest',
-                        style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary)),
-                    const SizedBox(height: 4),
-                    Text(user?.phone ?? '',
-                        style: const TextStyle(
-                            color: AppColors.textMuted, fontSize: 14)),
-                    if (user?.isVerified == true) ...[
-                      const SizedBox(height: 10),
-                      const StatusBadge(
-                          label: '✓ Verified', color: AppColors.success),
-                    ],
+
+                    // ── Avatar Card ───────────────────────────────────
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                        child: auth.isLoading
+                            ? const _AvatarSkeleton()
+                            : _AvatarCard(user: user),
+                      ),
+                    ),
+
+                    const SliverToBoxAdapter(child: SizedBox(height: 20)),
+
+                    // ── Info Card ──────────────────────────────────────
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: auth.isLoading
+                            ? const SkeletonCard(
+                                padding: EdgeInsets.all(16),
+                                child: Column(children: [
+                                  ShimmerBlock(
+                                      width: double.infinity, height: 20),
+                                  SizedBox(height: 16),
+                                  ShimmerBlock(
+                                      width: double.infinity, height: 20),
+                                  SizedBox(height: 16),
+                                  ShimmerBlock(
+                                      width: double.infinity, height: 20),
+                                  SizedBox(height: 16),
+                                  ShimmerBlock(
+                                      width: double.infinity, height: 20),
+                                ]))
+                            : GlassCard(
+                                borderRadius: 20,
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 8, horizontal: 20),
+                                child: Column(
+                                  children: [
+                                    _profileRow(
+                                        Icons.person_outline_rounded,
+                                        'Full Name',
+                                        user?.name ?? 'Not set'),
+                                    _divider(),
+                                    _profileRow(Icons.phone_outlined,
+                                        'Phone', user?.phone ?? 'Not set'),
+                                    _divider(),
+                                    _profileRow(Icons.email_outlined,
+                                        'Email', user?.email ?? 'Not set'),
+                                    _divider(),
+                                    _profileRow(
+                                        Icons.verified_user_outlined,
+                                        'Verification',
+                                        (user?.verificationStatus ?? 'none')
+                                            .toUpperCase()),
+                                  ],
+                                ),
+                              ),
+                      ),
+                    ),
+
+                    const SliverToBoxAdapter(child: SizedBox(height: 20)),
+
+                    // ── Menu Tiles ──────────────────────────────────────
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: auth.isLoading
+                            ? const Column(
+                                children: [
+                                  SkeletonCard(
+                                      padding: EdgeInsets.all(28),
+                                      child: SizedBox(width: double.infinity)),
+                                  SizedBox(height: 10),
+                                  SkeletonCard(
+                                      padding: EdgeInsets.all(28),
+                                      child: SizedBox(width: double.infinity)),
+                                ])
+                            : Column(
+                                children: [
+                                  _menuTile(
+                                    context,
+                                    icon: Icons.verified_user_outlined,
+                                    title: 'ID Verification',
+                                    subtitle: _verificationSubtitle(
+                                        user?.verificationStatus),
+                                    color: _verificationColor(
+                                        user?.verificationStatus),
+                                    gradient: _verificationGradient(
+                                        user?.verificationStatus),
+                                    onTap: () => Navigator.pushNamed(
+                                        context, '/verification'),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _menuTile(
+                                    context,
+                                    icon: Icons.logout_rounded,
+                                    title: 'Logout',
+                                    subtitle: 'Sign out of your account',
+                                    color: AppColors.error,
+                                    gradient: const LinearGradient(colors: [
+                                      AppColors.error,
+                                      Color(0xFFFF8A80)
+                                    ]),
+                                    onTap: () =>
+                                        _confirmLogout(context, auth),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+
+                    const SliverToBoxAdapter(child: SizedBox(height: 100)),
                   ],
                 ),
               ),
             ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 30)),
-
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: GlassCard(
-                  borderRadius: 18,
-                  child: Column(
-                    children: [
-                      _profileRow(Icons.person_outline, 'Full Name',
-                          user?.name ?? 'Not set'),
-                      const Divider(color: AppColors.border),
-                      _profileRow(Icons.phone_outlined, 'Phone',
-                          user?.phone ?? 'Not set'),
-                      const Divider(color: AppColors.border),
-                      _profileRow(Icons.email_outlined, 'Email',
-                          user?.email ?? 'Not set'),
-                      const Divider(color: AppColors.border),
-                      _profileRow(Icons.badge_outlined, 'Aadhaar',
-                          user?.aadhaarNumber != null
-                              ? 'XXXX XXXX ${user!.aadhaarNumber!.substring(user.aadhaarNumber!.length - 4)}'
-                              : 'Not linked'),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 20)),
-
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  children: [
-                    _menuTile(
-                        context,
-                        Icons.verified_user_outlined,
-                        'ID Verification',
-                        'Complete identity verification',
-                        AppColors.gold,
-                        () => Navigator.pushNamed(context, '/verification')),
-                    const SizedBox(height: 10),
-                    _menuTile(
-                        context,
-                        Icons.qr_code_scanner,
-                        'Scan Ticket',
-                        'Scanner for gate entry',
-                        AppColors.secondary,
-                        () => Navigator.pushNamed(context, '/scanner')),
-                    const SizedBox(height: 10),
-                    _menuTile(
-                        context,
-                        Icons.logout,
-                        'Logout',
-                        'Sign out of your account',
-                        AppColors.error,
-                        () => _confirmLogout(context, auth)),
-                  ],
-                ),
-              ),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 40)),
           ],
         ),
       ),
     );
   }
 
-  String _initials(String? name) {
-    if (name == null || name.isEmpty) return '?';
-    return name
-        .trim()
-        .split(' ')
-        .map((w) => w[0])
-        .take(2)
-        .join()
-        .toUpperCase();
+  String _verificationSubtitle(String? status) {
+    switch (status) {
+      case 'approved':
+        return 'Verification complete';
+      case 'pending':
+        return 'Under review — please wait';
+      case 'rejected':
+        return 'Rejected — tap to resubmit';
+      default:
+        return 'Complete identity verification';
+    }
   }
+
+  Color _verificationColor(String? status) {
+    switch (status) {
+      case 'approved':
+        return AppColors.success;
+      case 'pending':
+        return AppColors.warning;
+      case 'rejected':
+        return AppColors.error;
+      default:
+        return AppColors.gold;
+    }
+  }
+
+  Gradient _verificationGradient(String? status) {
+    switch (status) {
+      case 'approved':
+        return AppColors.gradientSuccess;
+      case 'pending':
+        return const LinearGradient(
+            colors: [AppColors.warning, Color(0xFFFFCC80)]);
+      case 'rejected':
+        return const LinearGradient(
+            colors: [AppColors.error, Color(0xFFFF8A80)]);
+      default:
+        return AppColors.gradientGold;
+    }
+  }
+
+  Widget _divider() => Container(
+      height: 1,
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      color: AppColors.border.withOpacity(0.5));
 
   Widget _profileRow(IconData icon, String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
-          Icon(icon, color: AppColors.primary, size: 18),
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              gradient: AppColors.gradientPrimary,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, color: Colors.white, size: 14),
+          ),
           const SizedBox(width: 12),
           Text(label,
               style: const TextStyle(
@@ -182,39 +255,22 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _menuTile(BuildContext context, IconData icon, String title,
-      String subtitle, Color color, VoidCallback onTap) {
-    return GlassCard(
+  Widget _menuTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required Gradient gradient,
+    required VoidCallback onTap,
+  }) {
+    return _PressableMenuTile(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
+      color: color,
+      gradient: gradient,
       onTap: onTap,
-      borderRadius: 14,
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-                color: color.withOpacity(0.15), shape: BoxShape.circle),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14)),
-                Text(subtitle,
-                    style: const TextStyle(
-                        color: AppColors.textMuted, fontSize: 12)),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_right, color: AppColors.textMuted),
-        ],
-      ),
     );
   }
 
@@ -224,9 +280,12 @@ class ProfileScreen extends StatelessWidget {
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.surface,
         shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('Logout?',
-            style: TextStyle(color: AppColors.textPrimary)),
+            style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+                letterSpacing: -0.3)),
         content: const Text('Are you sure you want to sign out?',
             style: TextStyle(color: AppColors.textMuted)),
         actions: [
@@ -235,20 +294,245 @@ class ProfileScreen extends StatelessWidget {
             child: const Text('Cancel',
                 style: TextStyle(color: AppColors.textMuted)),
           ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await auth.logout();
-              if (context.mounted) {
-                Navigator.pushNamedAndRemoveUntil(
-                    context, '/login', (_) => false);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.error),
-            child: const Text('Logout'),
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                  colors: [AppColors.error, Color(0xFFFF8A80)]),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await auth.logout();
+                if (context.mounted) {
+                  Navigator.pushNamedAndRemoveUntil(
+                      context, '/login', (_) => false);
+                }
+              },
+              child: const Text('Logout',
+                  style: TextStyle(color: Colors.white,
+                      fontWeight: FontWeight.bold)),
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Avatar Card ────────────────────────────────────────────────────────────
+class _AvatarCard extends StatelessWidget {
+  final dynamic user;
+  const _AvatarCard({required this.user});
+
+  String _initials(String? name) {
+    if (name == null || name.isEmpty) return '?';
+    return name
+        .trim()
+        .split(' ')
+        .map((w) => w[0])
+        .take(2)
+        .join()
+        .toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      borderRadius: 24,
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+      child: Column(
+        children: [
+          // Avatar with ring
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              // Outer glow ring
+              Container(
+                width: 106,
+                height: 106,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: AppColors.gradientNavratri,
+                  boxShadow: [
+                    BoxShadow(
+                        color: AppColors.primary.withOpacity(0.4),
+                        blurRadius: 24,
+                        spreadRadius: 4),
+                  ],
+                ),
+              ),
+              Container(
+                width: 98,
+                height: 98,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.background,
+                ),
+              ),
+              Container(
+                width: 90,
+                height: 90,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: AppColors.gradientPrimary,
+                ),
+                child: Center(
+                  child: Text(
+                    _initials(user?.name),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ShaderMask(
+            shaderCallback: (b) =>
+                AppColors.gradientNavratri.createShader(b),
+            child: Text(
+              user?.name ?? 'Guest',
+              style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: -0.5),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(user?.phone ?? '',
+              style: const TextStyle(
+                  color: AppColors.textMuted, fontSize: 14)),
+          if (user?.isVerified == true) ...[
+            const SizedBox(height: 10),
+            const StatusBadge(
+                label: '✓ Verified',
+                color: AppColors.success,
+                animate: true),
+          ] else if (user?.verificationStatus == 'pending') ...[
+            const SizedBox(height: 10),
+            const StatusBadge(
+                label: '⏳ Under Review', color: AppColors.warning),
+          ] else if (user?.verificationStatus == 'rejected') ...[
+            const SizedBox(height: 10),
+            const StatusBadge(
+                label: '❌ Action Required', color: AppColors.error),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AvatarSkeleton extends StatelessWidget {
+  const _AvatarSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      borderRadius: 24,
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+      child: const Column(
+        children: [
+          ShimmerBlock(width: 90, height: 90, borderRadius: 45),
+          SizedBox(height: 16),
+          ShimmerBlock(width: 140, height: 24),
+          SizedBox(height: 6),
+          ShimmerBlock(width: 100, height: 16),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Pressable Menu Tile ────────────────────────────────────────────────────
+class _PressableMenuTile extends StatefulWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final Gradient gradient;
+  final VoidCallback onTap;
+
+  const _PressableMenuTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.gradient,
+    required this.onTap,
+  });
+
+  @override
+  State<_PressableMenuTile> createState() => _PressableMenuTileState();
+}
+
+class _PressableMenuTileState extends State<_PressableMenuTile> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: GlassCard(
+          borderRadius: 16,
+          padding: const EdgeInsets.all(16),
+          borderColor: widget.color.withOpacity(0.25),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: widget.gradient,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                        color: widget.color.withOpacity(0.35),
+                        blurRadius: 12)
+                  ],
+                ),
+                child: Icon(widget.icon, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(widget.title,
+                        style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14)),
+                    Text(widget.subtitle,
+                        style: const TextStyle(
+                            color: AppColors.textMuted, fontSize: 12)),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: widget.color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.chevron_right_rounded,
+                    color: widget.color, size: 18),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

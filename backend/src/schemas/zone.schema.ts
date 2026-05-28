@@ -24,7 +24,10 @@ export class Zone {
   availableSeats: number;
 
   @Prop({ default: 0 })
-  price: number;
+  dailyPrice: number;
+
+  @Prop({ default: 0 })
+  seasonPrice: number;
 
   @Prop()
   type: string; // daily/season

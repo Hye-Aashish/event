@@ -5,10 +5,11 @@ class AppColors {
   static const background = Color(0xFF0B0B0F);
   static const surface = Color(0xFF16161E);
   static const surfaceLight = Color(0xFF1E1E2A);
-  static const primary = Color(0xFFFF0080);    // Neon Pink
-  static const secondary = Color(0xFF7928CA);  // Neon Purple
-  static const accent = Color(0xFFFF6B35);     // Neon Orange
-  static const gold = Color(0xFFFFD700);       // Gold (Navratri)
+  static const surfaceVariant = Color(0xFF1A1A28);
+  static const primary = Color(0xFFFF0080); // Neon Pink
+  static const secondary = Color(0xFF7928CA); // Neon Purple
+  static const accent = Color(0xFFFF6B35); // Neon Orange
+  static const gold = Color(0xFFFFD700); // Gold (Navratri)
   static const success = Color(0xFF00E676);
   static const warning = Color(0xFFFFAB40);
   static const error = Color(0xFFFF5252);
@@ -41,6 +42,18 @@ class AppColors {
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
+
+  static const cardGradient = LinearGradient(
+    colors: [Color(0xFF1E1E2A), Color(0xFF16161E)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const gradientSuccess = LinearGradient(
+    colors: [Color(0xFF00E676), Color(0xFF00B248)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 }
 
 class AppTheme {
@@ -55,18 +68,46 @@ class AppTheme {
         surface: AppColors.surface,
         error: AppColors.error,
       ),
-      textTheme: GoogleFonts.interTextTheme(
+      textTheme: GoogleFonts.outfitTextTheme(
         const TextTheme(
-          displayLarge: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 36),
-          displayMedium: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 28),
-          headlineLarge: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 24),
-          headlineMedium: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 20),
-          headlineSmall: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 18),
-          titleLarge: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 16),
-          bodyLarge: TextStyle(color: AppColors.textSecondary, fontSize: 16),
-          bodyMedium: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+          displayLarge: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.bold,
+              fontSize: 36,
+              letterSpacing: -1.5),
+          displayMedium: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.bold,
+              fontSize: 28,
+              letterSpacing: -1.0),
+          headlineLarge: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.bold,
+              fontSize: 24,
+              letterSpacing: -0.5),
+          headlineMedium: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w600,
+              fontSize: 20,
+              letterSpacing: -0.3),
+          headlineSmall: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w600,
+              fontSize: 18,
+              letterSpacing: -0.2),
+          titleLarge: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w600,
+              fontSize: 16),
+          bodyLarge:
+              TextStyle(color: AppColors.textSecondary, fontSize: 16, height: 1.5),
+          bodyMedium:
+              TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.5),
           bodySmall: TextStyle(color: AppColors.textMuted, fontSize: 12),
-          labelLarge: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
+          labelLarge: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w600,
+              fontSize: 14),
         ),
       ),
       appBarTheme: const AppBarTheme(
@@ -77,6 +118,7 @@ class AppTheme {
           color: AppColors.textPrimary,
           fontSize: 18,
           fontWeight: FontWeight.w600,
+          letterSpacing: -0.3,
         ),
       ),
       cardTheme: CardTheme(
@@ -111,12 +153,14 @@ class AppTheme {
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          textStyle:
+              const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: AppColors.surface,
+        backgroundColor: Colors.transparent,
         selectedItemColor: AppColors.primary,
         unselectedItemColor: AppColors.textMuted,
         showSelectedLabels: true,

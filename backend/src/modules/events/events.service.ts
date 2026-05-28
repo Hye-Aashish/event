@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Event, EventDocument } from '../../schemas/event.schema';
 import { Zone, ZoneDocument } from '../../schemas/zone.schema';
 
@@ -11,6 +11,20 @@ export class EventsService {
     @InjectModel(Zone.name) private zoneModel: Model<ZoneDocument>,
   ) {}
 
+  // ── Helper ───────────────────────────────────────────────────────────
+  private normalizeZone(z: any) {
+    const dPrice = z.dailyPrice || (z.type === 'daily' || z.type === 'both' ? z.price : 0) || 0;
+    const sPrice = z.seasonPrice || (z.type === 'season' || z.type === 'both' ? z.price : 0) || 0;
+    return {
+      ...z,
+      id: z._id.toString(),
+      _id: z._id.toString(),
+      dailyPrice: dPrice,
+      seasonPrice: sPrice,
+      availableSeats: z.availableSeats ?? z.available ?? 0
+    };
+  }
+
   // ── Events ──────────────────────────────────────────────────────────────
   async createEvent(dto: any, adminId: string) {
     const event = await this.eventModel.create({ ...dto, createdBy: adminId });
@@ -18,33 +32,48 @@ export class EventsService {
   }
 
   async getAllEvents() {
-    // published events fetch karein
+    console.log('📅 Fetching all events...');
     const events = await this.eventModel.find({ status: { $in: ['published', 'active'] } }).sort({ createdAt: -1 }).lean();
     
-    // Har event ke liye zones ko dhundo
-    const results = await Promise.all(events.map(async (event) => {
-      const zones = await this.zoneModel.find({ eventId: event._id }).lean();
+    return Promise.all(events.map(async (event) => {
+      // Robust query: Search by both ObjectId and String to handle DB inconsistencies
+      const zones = await this.zoneModel.find({ 
+        $or: [
+          { eventId: new Types.ObjectId(String(event._id)) },
+          { eventId: String(event._id) }
+        ]
+      }).lean();
+      
+      console.log(`📍 Event ${event.name}: Populated ${zones.length} zones`);
       
       return {
         ...event,
         id: event._id.toString(),
-        // Map lean zones to match what frontend expects
-        zones: zones.map((z: any) => ({
-          ...z,
-          id: z._id.toString(),
-          _id: z._id.toString(),
-          availableSeats: z.availableSeats ?? z.available ?? 0 // fallback
-        }))
+        zones: zones.map(z => this.normalizeZone(z))
       };
     }));
-
-    return results;
   }
 
   async getEventById(id: string) {
-    const event = await this.eventModel.findById(id);
+    console.log(`📅 Fetching details for event: ${id}`);
+    const event = await this.eventModel.findById(id).lean();
     if (!event) throw new NotFoundException('Event not found');
-    return event;
+    
+    // Also fetch zones for detail view
+    const zones = await this.zoneModel.find({ 
+      $or: [
+        { eventId: new Types.ObjectId(String(event._id)) },
+        { eventId: String(event._id) }
+      ]
+    }).lean();
+
+    console.log(`📍 Event ${event.name}: Populated ${zones.length} zones`);
+
+    return {
+      ...event,
+      id: event._id.toString(),
+      zones: zones.map(z => this.normalizeZone(z))
+    };
   }
 
   async updateEvent(id: string, dto: any) {
@@ -52,17 +81,20 @@ export class EventsService {
   }
 
   async deleteEvent(id: string) {
+    // Soft delete
     return this.eventModel.findByIdAndUpdate(id, { status: 'cancelled' }, { new: true });
   }
 
   // ── Zones ────────────────────────────────────────────────────────────────
   async createZone(dto: any, adminId?: string) {
-    const event = await this.eventModel.findById(dto.eventId);
+    const eventCandidateId = dto.eventId;
+    const event = await this.eventModel.findById(eventCandidateId);
     if (!event) throw new NotFoundException('Event not found');
     
-    // Ensure availableSeats starts at capacity if not specified
+    // Explicitly cast eventId to ObjectId to ensure clean data
     const zoneData = {
       ...dto,
+      eventId: new Types.ObjectId(String(eventCandidateId)),
       availableSeats: dto.availableSeats ?? dto.capacity ?? 0,
       createdBy: adminId || 'platform_admin'
     };
@@ -71,17 +103,28 @@ export class EventsService {
   }
 
   async getZonesByEvent(eventId: string) {
-    return this.zoneModel.find({ eventId }).populate('ownerId', 'name phoneNumber');
+    const zones = await this.zoneModel.find({ 
+      $or: [
+        { eventId: new Types.ObjectId(String(eventId)) },
+        { eventId: String(eventId) }
+      ]
+    }).populate('ownerId', 'name phoneNumber').lean();
+    
+    return zones.map(z => this.normalizeZone(z));
   }
 
   async updateZone(id: string, dto: any) {
-    return this.zoneModel.findByIdAndUpdate(id, dto, { new: true });
+    let updateData = { ...dto };
+    if (dto.eventId) {
+      updateData.eventId = new Types.ObjectId(String(dto.eventId));
+    }
+    return this.zoneModel.findByIdAndUpdate(id, updateData, { new: true });
   }
 
   async incrementZoneCount(zoneId: string) {
     return this.zoneModel.findByIdAndUpdate(
       zoneId,
-      { $inc: { currentCount: 1 } },
+      { $inc: { currentCount: 1, availableSeats: -1 } },
       { new: true }
     );
   }
