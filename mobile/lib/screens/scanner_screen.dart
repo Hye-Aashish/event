@@ -466,7 +466,7 @@ class _ScannerScreenState extends State<ScannerScreen>
                             children: [
                               Container(
                                 padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
+                                decoration: const BoxDecoration(
                                   gradient: AppColors.gradientPrimary,
                                   shape: BoxShape.circle,
                                 ),
@@ -495,7 +495,7 @@ class _ScannerScreenState extends State<ScannerScreen>
   List<Widget> _buildCorners() {
     const size = 24.0;
     const thickness = 3.0;
-    final color = AppColors.primary;
+    const color = AppColors.primary;
 
     return [
       // Top-left
@@ -610,7 +610,7 @@ class _CornerPainter extends CustomPainter {
       canvas.drawLine(const Offset(0, 0), Offset(size.width, 0), paint);
     }
     if (topRight) {
-      canvas.drawLine(Offset(0, 0), Offset(size.width, 0), paint);
+      canvas.drawLine(const Offset(0, 0), Offset(size.width, 0), paint);
       canvas.drawLine(
           Offset(size.width, 0), Offset(size.width, size.height), paint);
     }
