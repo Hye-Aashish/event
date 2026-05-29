@@ -1,6 +1,8 @@
 import { Controller, Post, Get, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { TicketsService } from './tickets.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('tickets')
 export class TicketsController {
@@ -18,6 +20,8 @@ export class TicketsController {
     return this.ticketsService.verifyAndCreate(req.user.sub, body);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @Get('all')
   getAllTickets(@Query() query: any) {
     return this.ticketsService.getAllTickets(query);
@@ -47,6 +51,8 @@ export class TicketsController {
     return this.ticketsService.getQrData(id, req.user.sub);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @Post('sponsor/issue')
   issueSponsored(@Body() body: any) {
     return this.ticketsService.issueSponsorTicket(body.sponsorId, body, body.adminId);

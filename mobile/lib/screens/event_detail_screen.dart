@@ -8,6 +8,7 @@ import '../widgets/glass_card.dart';
 import '../widgets/booking_sheet.dart';
 import '../widgets/gradient_button.dart';
 import '../widgets/status_badge.dart';
+import '../widgets/custom_snackbar.dart';
 
 class EventDetailScreen extends StatelessWidget {
   final EventModel event;
@@ -19,8 +20,7 @@ class EventDetailScreen extends StatelessWidget {
     return Scaffold(
       extendBodyBehindAppBar: true,
       body: Container(
-        decoration:
-            const BoxDecoration(gradient: AppColors.gradientBackground),
+        decoration: const BoxDecoration(gradient: AppColors.gradientBackground),
         child: CustomScrollView(
           slivers: [
             // ── Expanded Banner Header ─────────────────────────────────
@@ -42,8 +42,7 @@ class EventDetailScreen extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                titlePadding:
-                    const EdgeInsets.fromLTRB(56, 0, 56, 14),
+                titlePadding: const EdgeInsets.fromLTRB(56, 0, 56, 14),
                 background: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -125,7 +124,7 @@ class EventDetailScreen extends StatelessWidget {
             // ── Content ───────────────────────────────────────────────
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -190,8 +189,7 @@ class EventDetailScreen extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                            child: _infoChip(
-                                Icons.calendar_today_rounded,
+                            child: _infoChip(Icons.calendar_today_rounded,
                                 event.formattedDate)),
                         const SizedBox(width: 12),
                         Expanded(
@@ -270,14 +268,10 @@ class EventDetailScreen extends StatelessWidget {
   }
 
   void _shareEvent(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Sharing ${event.name}...'),
-        backgroundColor: AppColors.surface,
-        behavior: SnackBarBehavior.floating,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
+    CustomSnackBar.show(
+      context,
+      message: 'Sharing ${event.name} details...',
+      type: SnackBarType.info,
     );
   }
 
@@ -325,8 +319,8 @@ class EventDetailScreen extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
-                  color: AppColors.textSecondary, fontSize: 12),
+              style:
+                  const TextStyle(color: AppColors.textSecondary, fontSize: 12),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -406,8 +400,7 @@ class _ZoneCard extends StatelessWidget {
                       ),
                       Text(
                         '$available seats available',
-                        style: TextStyle(
-                            color: progressColor, fontSize: 12),
+                        style: TextStyle(color: progressColor, fontSize: 12),
                       ),
                     ],
                   ),
@@ -426,8 +419,8 @@ class _ZoneCard extends StatelessWidget {
                     ),
                     const Text(
                       'Starting from',
-                      style: TextStyle(
-                          color: AppColors.textMuted, fontSize: 10),
+                      style:
+                          TextStyle(color: AppColors.textMuted, fontSize: 10),
                     ),
                   ],
                 ),
@@ -462,8 +455,7 @@ class _ZoneCard extends StatelessWidget {
                     value: fillRatio,
                     minHeight: 6,
                     backgroundColor: AppColors.border,
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(progressColor),
+                    valueColor: AlwaysStoppedAnimation<Color>(progressColor),
                   ),
                 ),
               ],

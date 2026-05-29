@@ -17,7 +17,7 @@ class GlassCard extends StatelessWidget {
     this.borderRadius = 20,
     this.padding = const EdgeInsets.all(20),
     this.borderColor,
-    this.blurSigma = 10,
+    this.blurSigma = 5, // #3 Reduced from 10 to 5 for major GPU optimization
     this.gradient,
     this.onTap,
   });

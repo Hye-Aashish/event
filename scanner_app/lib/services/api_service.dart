@@ -1,15 +1,15 @@
 // ignore_for_file: empty_catches
 
 import 'dart:convert';
-
-import 'package:flutter/foundation.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:http/http.dart' as http;
+import 'dio_client.dart';
 
 class ApiService {
-  static const String baseUrl =
-      'http://localhost:3000/api'; // Windows/Localhost
-  // static const String baseUrl = 'http://10.0.2.2:3000/api'; // Android emulator
+  static const String baseUrl = String.fromEnvironment(
+    'API_URL',
+    defaultValue: 'http://localhost:3000/api',
+  );
 
   static const _storage = FlutterSecureStorage();
 
@@ -18,7 +18,6 @@ class ApiService {
     try {
       return await _storage.read(key: 'auth_token');
     } catch (e) {
-      // Fallback to local storage for web
       return null;
     }
   }
@@ -35,156 +34,172 @@ class ApiService {
     } catch (e) {}
   }
 
-  // ─── Authenticated Headers ───────────────────────────────────
-  static Future<Map<String, String>> get _authHeaders async {
-    final token = await getToken();
-    return {
-      'Content-Type': 'application/json',
-      if (token != null) 'Authorization': 'Bearer $token',
-    };
+  static Future<Map<String, dynamic>> logout() async {
+    try {
+      final res = await DioClient.instance.dio.post('/auth/logout');
+      return {'success': true, ...res.data};
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    } finally {
+      await clearToken();
+    }
   }
 
   // ─── Auth APIs ───────────────────────────────────────────────
   static Future<Map<String, dynamic>> sendOtp(String phone) async {
-    final res = await http.post(
-      Uri.parse('$baseUrl/auth/send-otp'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'phone': phone}),
-    );
-    return _handleResponse(res);
+    try {
+      final res = await DioClient.instance.dio.post(
+        '/auth/send-otp',
+        data: {'phone': phone},
+      );
+      return {'success': true, ...res.data};
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    }
   }
 
   static Future<Map<String, dynamic>> verifyOtp(
       String phone, String otp) async {
-    final res = await http.post(
-      Uri.parse('$baseUrl/auth/verify-otp'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'phone': phone, 'otp': otp}),
-    );
-    return _handleResponse(res);
+    try {
+      final res = await DioClient.instance.dio.post(
+        '/auth/verify-otp',
+        data: {'phone': phone, 'otp': otp},
+      );
+      return {'success': true, ...res.data};
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    }
   }
 
   static Future<Map<String, dynamic>> getProfile() async {
-    final res = await http.get(
-      Uri.parse('$baseUrl/auth/profile'),
-      headers: await _authHeaders,
-    );
-    return _handleResponse(res);
+    try {
+      final res = await DioClient.instance.dio.get('/auth/profile');
+      return {'success': true, ...res.data};
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    }
   }
 
   static Future<Map<String, dynamic>> updateProfile(
       Map<String, dynamic> data) async {
-    final res = await http.patch(
-      Uri.parse('$baseUrl/auth/profile'),
-      headers: await _authHeaders,
-      body: jsonEncode(data),
-    );
-    return _handleResponse(res);
+    try {
+      final res =
+          await DioClient.instance.dio.patch('/auth/profile', data: data);
+      return {'success': true, ...res.data};
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    }
   }
 
   // ─── Events APIs ─────────────────────────────────────────────
   static Future<Map<String, dynamic>> getEvents() async {
-    final res = await http.get(
-      Uri.parse('$baseUrl/events'),
-      headers: await _authHeaders,
-    );
-    return _handleResponse(res);
+    try {
+      final res = await DioClient.instance.dio.get('/events');
+      return {'success': true, 'data': res.data};
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    }
   }
 
   static Future<Map<String, dynamic>> getEventById(String id) async {
-    final res = await http.get(
-      Uri.parse('$baseUrl/events/$id'),
-      headers: await _authHeaders,
-    );
-    return _handleResponse(res);
+    try {
+      final res = await DioClient.instance.dio.get('/events/$id');
+      return {'success': true, ...res.data};
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    }
   }
 
   static Future<Map<String, dynamic>> getZones(String eventId) async {
-    final res = await http.get(
-      Uri.parse('$baseUrl/zones?eventId=$eventId'),
-      headers: await _authHeaders,
-    );
-    return _handleResponse(res);
+    try {
+      final res = await DioClient.instance.dio
+          .get('/zones', queryParameters: {'eventId': eventId});
+      return {'success': true, 'data': res.data};
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    }
   }
 
   // ─── Tickets APIs ─────────────────────────────────────────────
   static Future<Map<String, dynamic>> getMyTickets() async {
-    final res = await http.get(
-      Uri.parse('$baseUrl/tickets/my'),
-      headers: await _authHeaders,
-    );
-    return _handleResponse(res);
+    try {
+      final res = await DioClient.instance.dio.get('/tickets/my');
+      return {'success': true, 'data': res.data};
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    }
   }
 
   static Future<Map<String, dynamic>> purchaseTicket(
       Map<String, dynamic> data) async {
-    final res = await http.post(
-      Uri.parse('$baseUrl/tickets/purchase'),
-      headers: await _authHeaders,
-      body: jsonEncode(data),
-    );
-    return _handleResponse(res);
+    try {
+      final res =
+          await DioClient.instance.dio.post('/tickets/purchase', data: data);
+      return {'success': true, ...res.data};
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    }
   }
 
   static Future<Map<String, dynamic>> transferTicket(
       String ticketId, String toPhone) async {
-    final res = await http.post(
-      Uri.parse('$baseUrl/tickets/$ticketId/transfer'),
-      headers: await _authHeaders,
-      body: jsonEncode({'toPhone': toPhone}),
-    );
-    return _handleResponse(res);
+    try {
+      final res = await DioClient.instance.dio.post(
+        '/tickets/$ticketId/transfer',
+        data: {'toPhone': toPhone},
+      );
+      return {'success': true, ...res.data};
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    }
   }
 
   static Future<Map<String, dynamic>> getTicketById(String ticketId) async {
-    final res = await http.get(
-      Uri.parse('$baseUrl/tickets/$ticketId'),
-      headers: await _authHeaders,
-    );
-    return _handleResponse(res);
+    try {
+      final res = await DioClient.instance.dio.get('/tickets/$ticketId');
+      return {'success': true, ...res.data};
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    }
   }
 
   // ─── Scanner APIs ─────────────────────────────────────────────
   static Future<Map<String, dynamic>> scanQr(String qrData) async {
-    Map<String, dynamic> payload;
     try {
-      payload = jsonDecode(qrData);
-    } catch (e) {
-      payload = {'qrData': qrData};
-    }
+      Map<String, dynamic> payload;
+      try {
+        payload = jsonDecode(qrData);
+      } catch (e) {
+        payload = {'qrData': qrData};
+      }
 
-    final res = await http.post(
-      Uri.parse('$baseUrl/gate/scan'),
-      headers: await _authHeaders,
-      body: jsonEncode(payload),
-    );
-    return _handleResponse(res);
+      final res = await DioClient.instance.dio.post(
+        '/gate/scan',
+        data: payload,
+      );
+      return {'success': true, ...res.data};
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    }
   }
 
-  // ─── Response Handler ─────────────────────────────────────────
-  static Map<String, dynamic> _handleResponse(http.Response res) {
-    debugPrint(
-        'API [${res.request?.method}] ${res.request?.url} | Status: ${res.statusCode}');
-    debugPrint('Response Body: ${res.body}');
-
-    final dynamic decodedBody = jsonDecode(res.body);
-    Map<String, dynamic> body;
-
-    if (decodedBody is List) {
-      body = {'data': decodedBody};
-    } else {
-      body = decodedBody as Map<String, dynamic>;
+  // ─── Unified Error Handler ──────────────────────────────────────
+  static Map<String, dynamic> _handleDioError(DioException e) {
+    String message = 'Something went wrong';
+    if (e.response != null && e.response?.data is Map) {
+      message = e.response?.data['message'] ?? message;
+    } else if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      message = 'Connection timed out. Please try again.';
+    } else if (e.type == DioExceptionType.connectionError) {
+      message = 'No internet connection.';
     }
-
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      if (decodedBody is List) return {'success': true, 'data': decodedBody};
-      return {'success': true, ...body};
-    } else {
-      return {
-        'success': false,
-        'message': body['message'] ?? 'Something went wrong',
-        'statusCode': res.statusCode,
-      };
-    }
+    return {
+      'success': false,
+      'message': message,
+      'statusCode': e.response?.statusCode,
+    };
   }
 }

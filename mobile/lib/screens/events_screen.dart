@@ -22,6 +22,16 @@ class EventsScreen extends StatefulWidget {
 class _EventsScreenState extends State<EventsScreen> {
   String _activeFilter = 'All';
   final _filters = ['All', 'Active', 'Upcoming'];
+  bool _searchOpen = false;
+  final _searchController = TextEditingController();
+  final ValueNotifier<String> _searchQuery = ValueNotifier('');
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchQuery.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -30,9 +40,18 @@ class _EventsScreenState extends State<EventsScreen> {
   }
 
   List<EventModel> _applyFilter(List<EventModel> events) {
-    if (_activeFilter == 'Active') return events.where((e) => e.isActive).toList();
-    if (_activeFilter == 'Upcoming') return events.where((e) => !e.isActive).toList();
-    return events;
+    var result = events;
+    if (_activeFilter == 'Active') {
+      result = result.where((e) => e.isActive).toList();
+    }
+    if (_activeFilter == 'Upcoming') {
+      result = result.where((e) => !e.isActive).toList();
+    }
+    final q = _searchQuery.value.toLowerCase();
+    if (q.isNotEmpty) {
+      result = result.where((e) => e.name.toLowerCase().contains(q)).toList();
+    }
+    return result;
   }
 
   void _showFilterSheet() {
@@ -62,49 +81,115 @@ class _EventsScreenState extends State<EventsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Header ──────────────────────────────────────────────────
+              // ── Header ────────────────────────────────────────────────
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
-                child: Row(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                child: Column(
                   children: [
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Events',
-                              style: TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.textPrimary,
-                                  letterSpacing: -0.8)),
-                          Text('Navratri 2024 — 9 Nights',
-                              style: TextStyle(
-                                  color: AppColors.textMuted, fontSize: 13)),
-                        ],
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: _showFilterSheet,
-                      child: GlassCard(
-                        padding: const EdgeInsets.all(10),
-                        borderRadius: 12,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.filter_list_rounded,
-                                color: _activeFilter == 'All'
-                                    ? AppColors.textSecondary
-                                    : AppColors.primary,
-                                size: 20),
-                            if (_activeFilter != 'All') ...[
-                              const SizedBox(width: 6),
-                              Text(_activeFilter,
-                                  style: const TextStyle(
-                                      color: AppColors.primary,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600)),
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Events',
+                                  style: TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.textPrimary,
+                                      letterSpacing: -0.8)),
+                              Text('Navratri 2026 — 9 Nights',
+                                  style: TextStyle(
+                                      color: AppColors.textMuted,
+                                      fontSize: 13)),
                             ],
-                          ],
+                          ),
+                        ),
+                        // #11 Search toggle icon
+                        Semantics(
+                          label: 'Search events',
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() => _searchOpen = !_searchOpen);
+                              if (!_searchOpen) {
+                                _searchController.clear();
+                                _searchQuery.value = '';
+                              }
+                            },
+                            child: GlassCard(
+                              padding: const EdgeInsets.all(10),
+                              borderRadius: 12,
+                              borderColor: _searchOpen
+                                  ? AppColors.primary.withOpacity(0.5)
+                                  : null,
+                              child: Icon(
+                                _searchOpen
+                                    ? Icons.search_off_rounded
+                                    : Icons.search_rounded,
+                                color: _searchOpen
+                                    ? AppColors.primary
+                                    : AppColors.textSecondary,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: _showFilterSheet,
+                          child: GlassCard(
+                            padding: const EdgeInsets.all(10),
+                            borderRadius: 12,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.filter_list_rounded,
+                                    color: _activeFilter == 'All'
+                                        ? AppColors.textSecondary
+                                        : AppColors.primary,
+                                    size: 20),
+                                if (_activeFilter != 'All') ...[
+                                  const SizedBox(width: 6),
+                                  Text(_activeFilter,
+                                      style: const TextStyle(
+                                          color: AppColors.primary,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600)),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    // #11 Animated search bar
+                    AnimatedCrossFade(
+                      duration: const Duration(milliseconds: 250),
+                      crossFadeState: _searchOpen
+                          ? CrossFadeState.showSecond
+                          : CrossFadeState.showFirst,
+                      firstChild: const SizedBox(height: 0),
+                      secondChild: Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: GlassCard(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 4),
+                          borderRadius: 14,
+                          borderColor: AppColors.primary.withOpacity(0.4),
+                          child: TextField(
+                            controller: _searchController,
+                            autofocus: true,
+                            style: const TextStyle(
+                                color: AppColors.textPrimary, fontSize: 15),
+                            decoration: const InputDecoration(
+                              hintText: 'Search events...',
+                              hintStyle: TextStyle(color: AppColors.textMuted),
+                              border: InputBorder.none,
+                              prefixIcon: Icon(Icons.search_rounded,
+                                  color: AppColors.primary, size: 18),
+                            ),
+                            onChanged: (v) => _searchQuery.value = v.trim(),
+                          ),
                         ),
                       ),
                     ),
@@ -116,58 +201,62 @@ class _EventsScreenState extends State<EventsScreen> {
                 child: RefreshIndicator(
                   onRefresh: () => events.fetchEvents(),
                   color: AppColors.primary,
-                  child: events.isLoading
-                      ? ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 24, vertical: 8),
-                          itemCount: 4,
-                          itemBuilder: (ctx, i) => const EventListSkeleton(),
-                        )
-                      : events.errorMessage != null
-                          ? SingleChildScrollView(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              child: SizedBox(
-                                height:
-                                    MediaQuery.of(context).size.height * 0.6,
-                                child: _errorState(events.errorMessage!),
-                              ),
-                            )
-                          : events.events.isEmpty
-                              ? SingleChildScrollView(
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  child: SizedBox(
-                                    height:
-                                        MediaQuery.of(context).size.height *
-                                            0.6,
-                                    child: _emptyState(),
-                                  ),
-                                )
-                              : () {
-                                  final filtered = _applyFilter(events.events);
-                                  return filtered.isEmpty
-                                      ? SingleChildScrollView(
-                                          physics:
-                                              const AlwaysScrollableScrollPhysics(),
-                                          child: SizedBox(
-                                            height: MediaQuery.of(context)
-                                                    .size
-                                                    .height *
-                                                0.6,
-                                            child: _noResultsState(),
-                                          ),
-                                        )
-                                      : ListView.builder(
-                                          physics:
-                                              const AlwaysScrollableScrollPhysics(),
-                                          padding: const EdgeInsets.fromLTRB(
-                                              24, 8, 24, 100),
-                                          itemCount: filtered.length,
-                                          itemBuilder: (ctx, i) =>
-                                              _EventCard(event: filtered[i]),
-                                        );
-                                }(),
+                  child: ValueListenableBuilder<String>(
+                    valueListenable: _searchQuery,
+                    builder: (context, _, __) => events.isLoading
+                        ? ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            itemCount: 4,
+                            itemBuilder: (ctx, i) => const EventListSkeleton(),
+                          )
+                        : events.errorMessage != null
+                            ? SingleChildScrollView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                child: SizedBox(
+                                  height:
+                                      MediaQuery.of(context).size.height * 0.6,
+                                  child: _errorState(events.errorMessage!),
+                                ),
+                              )
+                            : events.events.isEmpty
+                                ? SingleChildScrollView(
+                                    physics:
+                                        const AlwaysScrollableScrollPhysics(),
+                                    child: SizedBox(
+                                      height:
+                                          MediaQuery.of(context).size.height *
+                                              0.6,
+                                      child: _emptyState(),
+                                    ),
+                                  )
+                                : () {
+                                    final filtered =
+                                        _applyFilter(events.events);
+                                    return filtered.isEmpty
+                                        ? SingleChildScrollView(
+                                            physics:
+                                                const AlwaysScrollableScrollPhysics(),
+                                            child: SizedBox(
+                                              height: MediaQuery.of(context)
+                                                      .size
+                                                      .height *
+                                                  0.6,
+                                              child: _noResultsState(),
+                                            ),
+                                          )
+                                        : ListView.builder(
+                                            physics:
+                                                const AlwaysScrollableScrollPhysics(),
+                                            padding: const EdgeInsets.fromLTRB(
+                                                16, 8, 16, 100),
+                                            itemCount: filtered.length,
+                                            itemBuilder: (ctx, i) =>
+                                                _EventCard(event: filtered[i]),
+                                          );
+                                  }(),
+                  ),
                 ),
               ),
             ],
@@ -190,8 +279,8 @@ class _EventsScreenState extends State<EventsScreen> {
           const SizedBox(height: 20),
           TextButton(
             onPressed: () => context.read<EventProvider>().fetchEvents(),
-            child: const Text('Retry',
-                style: TextStyle(color: AppColors.primary)),
+            child:
+                const Text('Retry', style: TextStyle(color: AppColors.primary)),
           ),
         ],
       ),
@@ -297,16 +386,14 @@ class _FilterSheet extends StatelessWidget {
                 onTap: () => onSelect(f),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   decoration: BoxDecoration(
                     gradient: isActive ? AppColors.gradientPrimary : null,
                     color: isActive ? null : AppColors.surfaceLight,
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
-                        color: isActive
-                            ? AppColors.primary
-                            : AppColors.border,
+                        color: isActive ? AppColors.primary : AppColors.border,
                         width: 1),
                     boxShadow: isActive
                         ? [
@@ -318,9 +405,8 @@ class _FilterSheet extends StatelessWidget {
                   ),
                   child: Text(f,
                       style: TextStyle(
-                          color: isActive
-                              ? Colors.white
-                              : AppColors.textSecondary,
+                          color:
+                              isActive ? Colors.white : AppColors.textSecondary,
                           fontWeight: FontWeight.w600,
                           fontSize: 14)),
                 ),
@@ -379,8 +465,7 @@ class _EventCard extends StatelessWidget {
                           height: 140,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              _gradientHeader(),
+                          errorBuilder: (_, __, ___) => _gradientHeader(),
                         )
                       : _gradientHeader(),
                 ),
@@ -409,9 +494,8 @@ class _EventCard extends StatelessWidget {
                   right: 12,
                   child: StatusBadge(
                     label: event.isActive ? 'Active' : 'Upcoming',
-                    color: event.isActive
-                        ? AppColors.success
-                        : AppColors.warning,
+                    color:
+                        event.isActive ? AppColors.success : AppColors.warning,
                     animate: event.isActive,
                   ),
                 ),
@@ -483,7 +567,8 @@ class _EventCard extends StatelessWidget {
                     Wrap(
                       spacing: 8,
                       runSpacing: 6,
-                      children: event.zones.take(3).toList().asMap().entries.map((e) {
+                      children:
+                          event.zones.take(3).toList().asMap().entries.map((e) {
                         final color = _zoneColor(e.key);
                         final z = e.value;
                         return Container(
@@ -492,8 +577,7 @@ class _EventCard extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: color.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
-                            border:
-                                Border.all(color: color.withOpacity(0.35)),
+                            border: Border.all(color: color.withOpacity(0.35)),
                           ),
                           child: Text(
                             '${z.name} • ${z.formattedPriceFor('daily')}',

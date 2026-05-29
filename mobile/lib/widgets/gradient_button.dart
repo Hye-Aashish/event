@@ -67,20 +67,23 @@ class _GradientButtonState extends State<GradientButton>
           width: widget.width ?? double.infinity,
           height: widget.height,
           decoration: BoxDecoration(
-            gradient: widget.onPressed != null ? widget.gradient : null,
-            color: widget.onPressed == null
+            gradient: (widget.onPressed != null || widget.isLoading)
+                ? widget.gradient
+                : null,
+            color: (widget.onPressed == null && !widget.isLoading)
                 ? Colors.grey.withOpacity(0.2)
                 : null,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: widget.onPressed != null && !_pressed
-                ? [
-                    BoxShadow(
-                      color: shadowColor,
-                      blurRadius: _pressed ? 6 : 16,
-                      offset: Offset(0, _pressed ? 2 : 8),
-                    )
-                  ]
-                : null,
+            boxShadow:
+                (widget.onPressed != null || widget.isLoading) && !_pressed
+                    ? [
+                        BoxShadow(
+                          color: shadowColor,
+                          blurRadius: _pressed ? 6 : 16,
+                          offset: Offset(0, _pressed ? 2 : 8),
+                        )
+                      ]
+                    : null,
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
@@ -94,17 +97,17 @@ class _GradientButtonState extends State<GradientButton>
                     builder: (_, __) {
                       return ShaderMask(
                         shaderCallback: (bounds) => LinearGradient(
-                          begin: Alignment(-1.5 + _shimmerController.value * 3,
-                              -0.5),
-                          end: Alignment(-0.5 + _shimmerController.value * 3,
-                              0.5),
+                          begin: Alignment(
+                              -1.5 + _shimmerController.value * 3, -0.5),
+                          end: Alignment(
+                              -0.5 + _shimmerController.value * 3, 0.5),
                           colors: [
                             Colors.white.withOpacity(0.0),
                             Colors.white.withOpacity(0.25),
                             Colors.white.withOpacity(0.0),
                           ],
                         ).createShader(bounds),
-                        blendMode: BlendMode.srcATop,
+                        blendMode: BlendMode.srcIn,
                         child: Container(color: Colors.white),
                       );
                     },

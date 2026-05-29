@@ -24,17 +24,21 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
-    
+
     // Entrance animations
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     );
     _fadeAnim = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: const Interval(0, 0.6, curve: Curves.easeOut)),
+      CurvedAnimation(
+          parent: _controller,
+          curve: const Interval(0, 0.6, curve: Curves.easeOut)),
     );
     _scaleAnim = Tween<double>(begin: 0.7, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: const Interval(0, 0.6, curve: Curves.elasticOut)),
+      CurvedAnimation(
+          parent: _controller,
+          curve: const Interval(0, 0.6, curve: Curves.elasticOut)),
     );
     _controller.forward();
 
@@ -43,7 +47,7 @@ class _SplashScreenState extends State<SplashScreen>
       vsync: this,
       duration: const Duration(seconds: 10),
     )..repeat(reverse: true);
-    
+
     _blob2Controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 12),
@@ -52,12 +56,14 @@ class _SplashScreenState extends State<SplashScreen>
     _blob1Anim = Tween<Offset>(
       begin: const Offset(-80, -100),
       end: const Offset(-40, -60),
-    ).animate(CurvedAnimation(parent: _blob1Controller, curve: Curves.easeInOut));
+    ).animate(
+        CurvedAnimation(parent: _blob1Controller, curve: Curves.easeInOut));
 
     _blob2Anim = Tween<Offset>(
       begin: const Offset(80, -100),
       end: const Offset(40, -60),
-    ).animate(CurvedAnimation(parent: _blob2Controller, curve: Curves.easeInOut));
+    ).animate(
+        CurvedAnimation(parent: _blob2Controller, curve: Curves.easeInOut));
 
     Future.delayed(const Duration(seconds: 2), _navigate);
   }
@@ -68,7 +74,8 @@ class _SplashScreenState extends State<SplashScreen>
 
     // Give it a max of 2 seconds to resolve auth
     int attempts = 0;
-    while (attempts < 20 && (auth.state == AuthState.initial || auth.state == AuthState.loading)) {
+    while (attempts < 20 &&
+        (auth.state == AuthState.initial || auth.state == AuthState.loading)) {
       await Future.delayed(const Duration(milliseconds: 100));
       attempts++;
     }
@@ -162,7 +169,7 @@ class _SplashScreenState extends State<SplashScreen>
                         ),
                         const SizedBox(height: 6),
                         const Text(
-                          '2 0 2 4',
+                          '2 0 2 6',
                           style: TextStyle(
                             fontSize: 16,
                             letterSpacing: 8,

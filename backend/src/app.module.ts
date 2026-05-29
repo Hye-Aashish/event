@@ -15,7 +15,7 @@ import { Zone, ZoneSchema } from './schemas/zone.schema';
 import { Ticket, TicketSchema } from './schemas/ticket.schema';
 import { Sponsor, SponsorSchema } from './schemas/sponsor.schema';
 import { Settings, SettingsSchema } from './schemas/settings.schema';
-import { ScanLog, ScanLogSchema, TransferLog, TransferLogSchema, AdminLog, AdminLogSchema } from './schemas/log.schema';
+import { ScanLog, ScanLogSchema, TransferLog, TransferLogSchema, AdminLog, AdminLogSchema, AuthLog, AuthLogSchema } from './schemas/log.schema';
 
 // Auth
 import { AuthService } from './modules/auth/auth.service';
@@ -77,6 +77,7 @@ import { ZonesController } from './modules/zones/zones.controller';
       { name: ScanLog.name,     schema: ScanLogSchema },
       { name: TransferLog.name, schema: TransferLogSchema },
       { name: AdminLog.name,    schema: AdminLogSchema },
+      { name: AuthLog.name,     schema: AuthLogSchema },
     ]),
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'navratri-jwt-secret-2024',

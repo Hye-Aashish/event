@@ -2,9 +2,11 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/custom_snackbar.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -54,12 +56,12 @@ class _LoginScreenState extends State<LoginScreen>
       vsync: this,
       duration: const Duration(seconds: 8),
     )..repeat(reverse: true);
-    
+
     _blob2Controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 11),
     )..repeat(reverse: true);
-    
+
     _blob3Controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 9),
@@ -68,22 +70,36 @@ class _LoginScreenState extends State<LoginScreen>
     _blob1Anim = Tween<Offset>(
       begin: const Offset(-60, -120),
       end: const Offset(-30, -80),
-    ).animate(CurvedAnimation(parent: _blob1Controller, curve: Curves.easeInOut));
+    ).animate(
+        CurvedAnimation(parent: _blob1Controller, curve: Curves.easeInOut));
 
     _blob2Anim = Tween<Offset>(
       begin: const Offset(200, 200),
       end: const Offset(220, 240),
-    ).animate(CurvedAnimation(parent: _blob2Controller, curve: Curves.easeInOut));
+    ).animate(
+        CurvedAnimation(parent: _blob2Controller, curve: Curves.easeInOut));
 
     _blob3Anim = Tween<Offset>(
       begin: const Offset(40, -60),
       end: const Offset(60, -40),
-    ).animate(CurvedAnimation(parent: _blob3Controller, curve: Curves.easeInOut));
+    ).animate(
+        CurvedAnimation(parent: _blob3Controller, curve: Curves.easeInOut));
 
     // Focus state listener
     _phoneFocus.addListener(() {
       setState(() => _isFocused = _phoneFocus.hasFocus);
     });
+
+    // #17 Pre-fill last-used phone number
+    _loadSavedPhone();
+  }
+
+  Future<void> _loadSavedPhone() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('scanner_last_phone');
+    if (saved != null && saved.isNotEmpty && mounted) {
+      _phoneController.text = saved;
+    }
   }
 
   @override
@@ -101,6 +117,9 @@ class _LoginScreenState extends State<LoginScreen>
     if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthProvider>();
     final phone = '+91${_phoneController.text.trim()}';
+    // #17 Save phone for next login
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('scanner_last_phone', _phoneController.text.trim());
     final success = await auth.sendOtp(phone);
     if (success && mounted) {
       Navigator.pushNamed(context, '/otp');
@@ -110,13 +129,10 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
+    CustomSnackBar.show(
+      context,
+      message: msg,
+      type: SnackBarType.error,
     );
   }
 
@@ -193,10 +209,10 @@ class _LoginScreenState extends State<LoginScreen>
                             ),
                           ),
                         ),
-                        
+
                         const SizedBox(height: 24),
                         const Text(
-                          'Welcome to\nNavratri 2024',
+                          'Welcome to\nNavratri 2026',
                           style: TextStyle(
                             fontSize: 34,
                             fontWeight: FontWeight.w800,
@@ -224,7 +240,8 @@ class _LoginScreenState extends State<LoginScreen>
                             boxShadow: _isFocused
                                 ? [
                                     BoxShadow(
-                                      color: AppColors.primary.withOpacity(0.25),
+                                      color:
+                                          AppColors.primary.withOpacity(0.25),
                                       blurRadius: 20,
                                       spreadRadius: 0,
                                     ),
@@ -283,7 +300,8 @@ class _LoginScreenState extends State<LoginScreen>
                                       filled: false,
                                     ),
                                     validator: (val) {
-                                      if (val == null || val.trim().length != 10) {
+                                      if (val == null ||
+                                          val.trim().length != 10) {
                                         return 'Please enter a valid 10-digit number';
                                       }
                                       return null;

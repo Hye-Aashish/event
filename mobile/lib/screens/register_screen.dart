@@ -1,11 +1,10 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/gradient_button.dart';
+import '../widgets/custom_snackbar.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -48,23 +47,22 @@ class _RegisterScreenState extends State<RegisterScreen>
 
     _fade = Tween<double>(begin: 0, end: 1).animate(
         CurvedAnimation(parent: _entranceController, curve: Curves.easeOut));
-    _slide =
-        Tween<Offset>(begin: const Offset(0, 0.35), end: Offset.zero).animate(
-            CurvedAnimation(
-                parent: _entranceController, curve: Curves.easeOut));
+    _slide = Tween<Offset>(begin: const Offset(0, 0.35), end: Offset.zero)
+        .animate(CurvedAnimation(
+            parent: _entranceController, curve: Curves.easeOut));
     _blob1 = Tween<Offset>(
             begin: const Offset(-100, -100), end: const Offset(-60, -70))
-        .animate(CurvedAnimation(
-            parent: _blob1Controller, curve: Curves.easeInOut));
+        .animate(
+            CurvedAnimation(parent: _blob1Controller, curve: Curves.easeInOut));
     _blob2 = Tween<Offset>(
             begin: const Offset(-50, -50), end: const Offset(-80, -80))
-        .animate(CurvedAnimation(
-            parent: _blob2Controller, curve: Curves.easeInOut));
+        .animate(
+            CurvedAnimation(parent: _blob2Controller, curve: Curves.easeInOut));
 
     _entranceController.forward();
 
-    _nameFocus.addListener(
-        () => setState(() => _nameFocused = _nameFocus.hasFocus));
+    _nameFocus
+        .addListener(() => setState(() => _nameFocused = _nameFocus.hasFocus));
     _emailFocus.addListener(
         () => setState(() => _emailFocused = _emailFocus.hasFocus));
   }
@@ -84,12 +82,11 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: AppColors.error,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ));
+    CustomSnackBar.show(
+      context,
+      message: msg,
+      type: SnackBarType.error,
+    );
   }
 
   @override
@@ -110,8 +107,7 @@ class _RegisterScreenState extends State<RegisterScreen>
 
     return Scaffold(
       body: Container(
-        decoration:
-            const BoxDecoration(gradient: AppColors.gradientBackground),
+        decoration: const BoxDecoration(gradient: AppColors.gradientBackground),
         child: Stack(
           children: [
             AnimatedBuilder(
@@ -130,14 +126,13 @@ class _RegisterScreenState extends State<RegisterScreen>
                 child: _glowBlob(AppColors.secondary, 250),
               ),
             ),
-
             SafeArea(
               child: FadeTransition(
                 opacity: _fade,
                 child: SlideTransition(
                   position: _slide,
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Form(
                       key: _formKey,
                       child: Column(
@@ -187,23 +182,24 @@ class _RegisterScreenState extends State<RegisterScreen>
                           const SizedBox(height: 40),
 
                           // Name field
-                          _fieldLabel('Full Name', Icons.person_outline_rounded),
+                          _fieldLabel(
+                              'Full Name', Icons.person_outline_rounded),
                           const SizedBox(height: 8),
                           _focusField(
                             focused: _nameFocused,
                             child: TextFormField(
                               controller: _nameController,
                               focusNode: _nameFocus,
-                              style: const TextStyle(
-                                  color: AppColors.textPrimary),
+                              style:
+                                  const TextStyle(color: AppColors.textPrimary),
                               decoration: const InputDecoration(
                                 hintText: 'John Doe',
                                 hintStyle:
                                     TextStyle(color: AppColors.textMuted),
                                 border: InputBorder.none,
                                 filled: false,
-                                contentPadding:
-                                    EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 16),
                               ),
                               validator: (val) => (val == null || val.isEmpty)
                                   ? 'Please enter your name'
@@ -222,23 +218,22 @@ class _RegisterScreenState extends State<RegisterScreen>
                               controller: _emailController,
                               focusNode: _emailFocus,
                               keyboardType: TextInputType.emailAddress,
-                              style: const TextStyle(
-                                  color: AppColors.textPrimary),
+                              style:
+                                  const TextStyle(color: AppColors.textPrimary),
                               decoration: const InputDecoration(
                                 hintText: 'john@example.com',
                                 hintStyle:
                                     TextStyle(color: AppColors.textMuted),
                                 border: InputBorder.none,
                                 filled: false,
-                                contentPadding:
-                                    EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 16),
                               ),
                               validator: (val) {
                                 if (val == null || val.isEmpty) {
                                   return 'Please enter email';
                                 }
-                                if (!RegExp(
-                                        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                                if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
                                     .hasMatch(val)) {
                                   return 'Enter a valid email';
                                 }
@@ -294,8 +289,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         boxShadow: focused
             ? [
                 BoxShadow(
-                    color: AppColors.primary.withOpacity(0.22),
-                    blurRadius: 20)
+                    color: AppColors.primary.withOpacity(0.22), blurRadius: 20)
               ]
             : [],
       ),

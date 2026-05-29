@@ -1,10 +1,11 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../models/user_model.dart';
 import '../services/api_service.dart';
+import '../services/database_helper.dart';
 
 enum AuthState { initial, loading, authenticated, unauthenticated, error }
 
@@ -14,6 +15,8 @@ class AuthProvider extends ChangeNotifier {
   String? _errorMessage;
   String? _pendingPhone;
   bool _isNewUser = false;
+
+  static const _secureStorage = FlutterSecureStorage();
 
   AuthState get state => _state;
   UserModel? get user => _user;
@@ -25,6 +28,20 @@ class AuthProvider extends ChangeNotifier {
 
   AuthProvider() {
     _checkAuth();
+  }
+
+  Future<void> _saveUserSecurely(UserModel user) async {
+    await _secureStorage.write(key: 'user_data', value: jsonEncode(user.toJson()));
+  }
+
+  Future<UserModel?> _loadUserSecurely() async {
+    final data = await _secureStorage.read(key: 'user_data');
+    if (data == null) return null;
+    return UserModel.fromJson(jsonDecode(data));
+  }
+
+  Future<void> _clearUserSecurely() async {
+    await _secureStorage.delete(key: 'user_data');
   }
 
   Future<void> _checkAuth() async {
@@ -40,22 +57,22 @@ class AuthProvider extends ChangeNotifier {
         return;
       }
 
-      final prefs = await SharedPreferences.getInstance();
-      final userData = prefs.getString('user_data');
-      if (userData != null) {
-        if (kDebugMode) print('💾 Auth Check: Loading user from cache');
-        _user = UserModel.fromJson(jsonDecode(userData));
+      final cachedUser = await _loadUserSecurely();
+      if (cachedUser != null) {
+        if (kDebugMode) print('💾 Auth Check: Loading user securely from cache');
+        _user = cachedUser;
         _state = AuthState.authenticated;
       } else {
         if (kDebugMode) print('☁️ Auth Check: Fetching profile from server');
         final res = await ApiService.getProfile();
         if (res['success'] == true) {
           _user = UserModel.fromJson(res['user'] ?? res);
-          await prefs.setString('user_data', jsonEncode(_user!.toJson()));
+          await _saveUserSecurely(_user!);
           _state = AuthState.authenticated;
         } else {
           if (kDebugMode) print('❌ Auth Check: Profile fetch failed, clearing token');
           await ApiService.clearToken();
+          await _clearUserSecurely();
           _state = AuthState.unauthenticated;
         }
       }
@@ -114,8 +131,7 @@ class AuthProvider extends ChangeNotifier {
         _isNewUser = res['isNewUser'] ?? false;
         if (res['user'] != null) {
           _user = UserModel.fromJson(res['user']);
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('user_data', jsonEncode(_user!.toJson()));
+          await _saveUserSecurely(_user!);
         }
         _state = AuthState.authenticated;
         notifyListeners();
@@ -145,8 +161,7 @@ class AuthProvider extends ChangeNotifier {
           await ApiService.updateProfile({'name': name, 'email': email});
       if (res['success'] == true) {
         _user = UserModel.fromJson(res['user'] ?? res);
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_data', jsonEncode(_user!.toJson()));
+        await _saveUserSecurely(_user!);
         _isNewUser = false;
         _state = AuthState.authenticated;
         notifyListeners();
@@ -165,14 +180,19 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> logout() async {
-    if (kDebugMode) print('🚪 User Logout');
-    await ApiService.clearToken();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('user_data');
-    _user = null;
-    _state = AuthState.unauthenticated;
-    notifyListeners();
+  Future<bool> updateProfile({required String name, required String email}) async {
+    try {
+      final res = await ApiService.updateProfile({'name': name, 'email': email});
+      if (res['success'] == true) {
+        _user = UserModel.fromJson(res['user'] ?? res);
+        await _saveUserSecurely(_user!);
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
   }
 
   Future<void> refreshProfile() async {
@@ -180,11 +200,22 @@ class AuthProvider extends ChangeNotifier {
       final res = await ApiService.getProfile();
       if (res['success'] == true) {
         _user = UserModel.fromJson(res['user'] ?? res);
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_data', jsonEncode(_user!.toJson()));
+        await _saveUserSecurely(_user!);
         notifyListeners();
       }
     } catch (_) {}
+  }
+
+  Future<void> logout() async {
+    if (kDebugMode) print('🚪 User Logout');
+    try {
+      await ApiService.logout();
+    } catch (_) {}
+    await _clearUserSecurely();
+    await DatabaseHelper.instance.clearTickets();
+    _user = null;
+    _state = AuthState.unauthenticated;
+    notifyListeners();
   }
 
   Future<Map<String, dynamic>> submitVerification(
@@ -226,8 +257,7 @@ class AuthProvider extends ChangeNotifier {
           print('submit verification res $submitRes');
         }
         _user = UserModel.fromJson(submitRes['user'] ?? submitRes);
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_data', jsonEncode(_user!.toJson()));
+        await _saveUserSecurely(_user!);
         _state = AuthState.authenticated;
         notifyListeners();
         return {'success': true};

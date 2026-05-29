@@ -257,7 +257,11 @@ export class TicketsService {
     );
 
     await this.transferLogModel.create({
-      ticketId, fromUserId, toUserId, toPhone, status: 'completed',
+      ticketId: new Types.ObjectId(ticketId),
+      fromUserId: new Types.ObjectId(fromUserId),
+      toUserId,
+      toPhone,
+      status: 'completed',
     });
 
     return { success: true, message: 'Ticket transferred successfully' };

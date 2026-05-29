@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/gradient_button.dart';
+import '../widgets/custom_snackbar.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -51,28 +52,31 @@ class _LoginScreenState extends State<LoginScreen>
     _animController.forward();
 
     // Animated blobs
-    _blob1Controller = AnimationController(
-        vsync: this, duration: const Duration(seconds: 8))
-      ..repeat(reverse: true);
-    _blob2Controller = AnimationController(
-        vsync: this, duration: const Duration(seconds: 11))
-      ..repeat(reverse: true);
-    _blob3Controller = AnimationController(
-        vsync: this, duration: const Duration(seconds: 9))
-      ..repeat(reverse: true);
+    _blob1Controller =
+        AnimationController(vsync: this, duration: const Duration(seconds: 8))
+          ..repeat(reverse: true);
+    _blob2Controller =
+        AnimationController(vsync: this, duration: const Duration(seconds: 11))
+          ..repeat(reverse: true);
+    _blob3Controller =
+        AnimationController(vsync: this, duration: const Duration(seconds: 9))
+          ..repeat(reverse: true);
 
     _blob1Anim = Tween<Offset>(
       begin: const Offset(-60, -120),
       end: const Offset(-30, -80),
-    ).animate(CurvedAnimation(parent: _blob1Controller, curve: Curves.easeInOut));
+    ).animate(
+        CurvedAnimation(parent: _blob1Controller, curve: Curves.easeInOut));
     _blob2Anim = Tween<Offset>(
       begin: const Offset(200, 200),
       end: const Offset(220, 240),
-    ).animate(CurvedAnimation(parent: _blob2Controller, curve: Curves.easeInOut));
+    ).animate(
+        CurvedAnimation(parent: _blob2Controller, curve: Curves.easeInOut));
     _blob3Anim = Tween<Offset>(
       begin: const Offset(40, -60),
       end: const Offset(60, -40),
-    ).animate(CurvedAnimation(parent: _blob3Controller, curve: Curves.easeInOut));
+    ).animate(
+        CurvedAnimation(parent: _blob3Controller, curve: Curves.easeInOut));
 
     // Focus listener
     _phoneFocus.addListener(() {
@@ -104,14 +108,10 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
+    CustomSnackBar.show(
+      context,
+      message: msg,
+      type: SnackBarType.error,
     );
   }
 
@@ -121,8 +121,7 @@ class _LoginScreenState extends State<LoginScreen>
 
     return Scaffold(
       body: Container(
-        decoration:
-            const BoxDecoration(gradient: AppColors.gradientBackground),
+        decoration: const BoxDecoration(gradient: AppColors.gradientBackground),
         child: Stack(
           children: [
             // ── Animated Glow Blobs ──────────────────────────────────
@@ -153,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen>
 
             SafeArea(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: AnimatedBuilder(
                   animation: _animController,
                   builder: (_, child) => Transform.translate(
@@ -183,8 +182,7 @@ class _LoginScreenState extends State<LoginScreen>
                             ],
                           ),
                           child: const Center(
-                            child: Text('🪔',
-                                style: TextStyle(fontSize: 38)),
+                            child: Text('🪔', style: TextStyle(fontSize: 38)),
                           ),
                         ),
 
@@ -220,7 +218,8 @@ class _LoginScreenState extends State<LoginScreen>
                             boxShadow: _isFocused
                                 ? [
                                     BoxShadow(
-                                      color: AppColors.primary.withOpacity(0.25),
+                                      color:
+                                          AppColors.primary.withOpacity(0.25),
                                       blurRadius: 20,
                                       spreadRadius: 0,
                                     ),
@@ -324,8 +323,7 @@ class _LoginScreenState extends State<LoginScreen>
                               ),
                               children: [
                                 const TextSpan(
-                                    text:
-                                        'By continuing, you agree to our\n'),
+                                    text: 'By continuing, you agree to our\n'),
                                 TextSpan(
                                   text: 'Terms of Service',
                                   style: const TextStyle(
@@ -443,8 +441,7 @@ class _StaggeredFeaturesGridState extends State<_StaggeredFeaturesGrid> {
             duration: const Duration(milliseconds: 350),
             curve: Curves.easeOut,
             child: GlassCard(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               borderRadius: 14,
               child: Row(
                 children: [

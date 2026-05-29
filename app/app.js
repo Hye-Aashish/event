@@ -1,5 +1,5 @@
 // ── Config ────────────────────────────────────────
-const API = 'http://localhost:3000/api';
+const API = '/api';
 
 // ── State ─────────────────────────────────────────
 let state = {

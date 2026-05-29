@@ -98,12 +98,14 @@ class _ScannerHomeScreenState extends State<ScannerHomeScreen>
     _blob1Anim = Tween<Offset>(
       begin: const Offset(-50, -50),
       end: const Offset(-20, -20),
-    ).animate(CurvedAnimation(parent: _blob1Controller, curve: Curves.easeInOut));
+    ).animate(
+        CurvedAnimation(parent: _blob1Controller, curve: Curves.easeInOut));
 
     _blob2Anim = Tween<Offset>(
       begin: const Offset(50, -50),
       end: const Offset(20, -20),
-    ).animate(CurvedAnimation(parent: _blob2Controller, curve: Curves.easeInOut));
+    ).animate(
+        CurvedAnimation(parent: _blob2Controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -143,7 +145,8 @@ class _ScannerHomeScreenState extends State<ScannerHomeScreen>
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: AppColors.error.withOpacity(0.12),
-                          border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                          border: Border.all(
+                              color: AppColors.error.withOpacity(0.3)),
                         ),
                         child: const Icon(
                           Icons.power_settings_new_rounded,
@@ -178,7 +181,8 @@ class _ScannerHomeScreenState extends State<ScannerHomeScreen>
                             child: TextButton(
                               onPressed: () => Navigator.pop(ctx, false),
                               style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
                               ),
                               child: const Text(
                                 'Cancel',
@@ -241,188 +245,225 @@ class _ScannerHomeScreenState extends State<ScannerHomeScreen>
             ),
 
             SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header Bar
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'GATE KEEPER AGENT',
-                              style: TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.5,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            ShaderMask(
-                              shaderCallback: (bounds) =>
-                                  AppColors.gradientNavratri.createShader(bounds),
-                              child: Text(
-                                auth.user?.name ?? 'Scanner Agent',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: -0.5,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        GestureDetector(
-                          onTap: () async {
-                            final confirm = await _showLogoutDialog(context);
-                            if (confirm == true && context.mounted) {
-                              await context.read<AuthProvider>().logout();
-                              if (context.mounted) {
-                                Navigator.pushNamedAndRemoveUntil(
-                                    context, '/login', (route) => false);
-                              }
-                            }
-                          },
-                          child: ClipOval(
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                              child: Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.08),
-                                  border: Border.all(color: Colors.white.withOpacity(0.1)),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Center(
-                                  child: Icon(Icons.power_settings_new,
-                                      color: AppColors.error, size: 20),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 50),
-                    const Center(
-                      child: Text(
-                        'NAVRATRI 2024',
-                        style: TextStyle(
-                          color: AppColors.accent,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 4.0,
-                        ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Center(
-                      child: Text(
-                        'TICKET VERIFICATION',
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                    ),
-                    
-                    const Spacer(),
-
-                    // Majestic Interactive Biometric Scanner Button
-                    Center(
-                      child: AnimatedBuilder(
-                        animation: _floatAnimation,
-                        builder: (context, child) {
-                          return Transform.translate(
-                            offset: Offset(0, _floatAnimation.value),
-                            child: child,
-                          );
-                        },
-                        child: GestureDetector(
-                          onTap: () => Navigator.pushNamed(context, '/scanner'),
-                          child: Stack(
-                            alignment: Alignment.center,
+                      child: IntrinsicHeight(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Sweeping circular glow
-                              RotationTransition(
-                                turns: _rotationController,
-                                child: Container(
-                                  width: 240,
-                                  height: 240,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: SweepGradient(
-                                      colors: [
-                                        AppColors.primary,
-                                        Colors.transparent,
-                                        AppColors.primary.withOpacity(0.4),
-                                        Colors.transparent,
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              // Nested visual pulse ring
-                              Container(
-                                width: 226,
-                                height: 226,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.black.withOpacity(0.2),
-                                  border: Border.all(
-                                    color: AppColors.primary.withOpacity(0.15),
-                                    width: 4,
-                                  ),
-                                ),
-                              ),
-                              // Central scanner pad glass card
-                              ClipOval(
-                                child: BackdropFilter(
-                                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                                  child: Container(
-                                    width: 210,
-                                    height: 210,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [
-                                          Colors.white.withOpacity(0.08),
-                                          Colors.white.withOpacity(0.02),
-                                        ],
-                                      ),
-                                      border: Border.all(
-                                        color: Colors.white.withOpacity(0.15),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: const Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.qr_code_scanner,
-                                          size: 70,
-                                          color: Colors.white,
+                              // Header Bar
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'GATE KEEPER AGENT',
+                                        style: TextStyle(
+                                          color: AppColors.textMuted,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.5,
                                         ),
-                                        SizedBox(height: 14),
-                                        Text(
-                                          'TAP TO SCAN',
-                                          style: TextStyle(
+                                      ),
+                                      const SizedBox(height: 4),
+                                      ShaderMask(
+                                        shaderCallback: (bounds) => AppColors
+                                            .gradientNavratri
+                                            .createShader(bounds),
+                                        child: Text(
+                                          auth.user?.name ?? 'Scanner Agent',
+                                          style: const TextStyle(
                                             color: Colors.white,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w800,
-                                            letterSpacing: 2,
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: -0.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  GestureDetector(
+                                    onTap: () async {
+                                      final confirm =
+                                          await _showLogoutDialog(context);
+                                      if (confirm == true && context.mounted) {
+                                        await context
+                                            .read<AuthProvider>()
+                                            .logout();
+                                        if (context.mounted) {
+                                          Navigator.pushNamedAndRemoveUntil(
+                                              context,
+                                              '/login',
+                                              (route) => false);
+                                        }
+                                      }
+                                    },
+                                    child: ClipOval(
+                                      child: BackdropFilter(
+                                        filter: ImageFilter.blur(
+                                            sigmaX: 10, sigmaY: 10),
+                                        child: Container(
+                                          width: 44,
+                                          height: 44,
+                                          decoration: BoxDecoration(
+                                            color:
+                                                Colors.white.withOpacity(0.08),
+                                            border: Border.all(
+                                                color: Colors.white
+                                                    .withOpacity(0.1)),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Center(
+                                            child: Icon(
+                                                Icons.power_settings_new,
+                                                color: AppColors.error,
+                                                size: 20),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 50),
+                              const Center(
+                                child: Text(
+                                  'NAVRATRI 2024',
+                                  style: TextStyle(
+                                    color: AppColors.accent,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 4.0,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              const Center(
+                                child: Text(
+                                  'TICKET VERIFICATION',
+                                  style: TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 1.0,
+                                  ),
+                                ),
+                              ),
+
+                              const Spacer(),
+
+                              // Majestic Interactive Biometric Scanner Button
+                              Center(
+                                child: AnimatedBuilder(
+                                  animation: _floatAnimation,
+                                  builder: (context, child) {
+                                    return Transform.translate(
+                                      offset: Offset(0, _floatAnimation.value),
+                                      child: child,
+                                    );
+                                  },
+                                  child: GestureDetector(
+                                    onTap: () => Navigator.pushNamed(
+                                        context, '/scanner'),
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        // Sweeping circular glow
+                                        RotationTransition(
+                                          turns: _rotationController,
+                                          child: Container(
+                                            width: 240,
+                                            height: 240,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              gradient: SweepGradient(
+                                                colors: [
+                                                  AppColors.primary,
+                                                  Colors.transparent,
+                                                  AppColors.primary
+                                                      .withOpacity(0.4),
+                                                  Colors.transparent,
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        // Nested visual pulse ring
+                                        Container(
+                                          width: 226,
+                                          height: 226,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color:
+                                                Colors.black.withOpacity(0.2),
+                                            border: Border.all(
+                                              color: AppColors.primary
+                                                  .withOpacity(0.15),
+                                              width: 4,
+                                            ),
+                                          ),
+                                        ),
+                                        // Central scanner pad glass card
+                                        ClipOval(
+                                          child: BackdropFilter(
+                                            filter: ImageFilter.blur(
+                                                sigmaX: 12, sigmaY: 12),
+                                            child: Container(
+                                              width: 210,
+                                              height: 210,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                  colors: [
+                                                    Colors.white.withOpacity(
+                                                        0.08),
+                                                    Colors.white.withOpacity(
+                                                        0.02),
+                                                  ],
+                                                ),
+                                                border: Border.all(
+                                                  color: Colors.white
+                                                      .withOpacity(0.15),
+                                                  width: 1,
+                                                ),
+                                              ),
+                                              child: const Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.qr_code_scanner,
+                                                    size: 70,
+                                                    color: Colors.white,
+                                                  ),
+                                                  SizedBox(height: 14),
+                                                  Text(
+                                                    'TAP TO SCAN',
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      letterSpacing: 2,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -430,35 +471,35 @@ class _ScannerHomeScreenState extends State<ScannerHomeScreen>
                                   ),
                                 ),
                               ),
+
+                              const Spacer(),
+
+                              const Center(
+                                child: StatusBadge(
+                                  label: 'SECURE WORKSTATION',
+                                  color: AppColors.success,
+                                  animate: true,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              const Center(
+                                child: Text(
+                                  'Authorized Gate Keeper Personnel Only',
+                                  style: TextStyle(
+                                    color: AppColors.textMuted,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
                             ],
                           ),
                         ),
                       ),
                     ),
-
-                    const Spacer(),
-                    
-                    const Center(
-                      child: StatusBadge(
-                        label: 'SECURE WORKSTATION',
-                        color: AppColors.success,
-                        animate: true,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    const Center(
-                      child: Text(
-                        'Authorized Gate Keeper Personnel Only',
-                        style: TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ],

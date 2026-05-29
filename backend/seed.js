@@ -37,11 +37,11 @@ const UserSchema = new mongoose.Schema({
 
 async function seed() {
   const MONGO_URI = 'mongodb+srv://aashishofficial123_db_user:AV445S3k0brlHEPu@cluster0.q0seg1w.mongodb.net/event_app';
-  
+
   try {
     console.log('Connecting to database...');
     await mongoose.connect(MONGO_URI);
-    
+
     console.log('Cleaning up old data...');
     await mongoose.connection.db.collection('events').deleteMany({});
     await mongoose.connection.db.collection('zones').deleteMany({});
@@ -129,7 +129,7 @@ async function seed() {
     console.log('\n✅ SEEDING COMPLETE!');
     console.log('Event Name: ' + event.name);
     console.log('Event Status: ' + event.status);
-    
+
     process.exit(0);
   } catch (err) {
     console.error('❌ SEEDING FAILED:', err);

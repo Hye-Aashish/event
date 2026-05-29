@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Ticket, TicketDocument } from '../../schemas/ticket.schema';
 
 const memoryLock = new Map<string, NodeJS.Timeout>();
@@ -22,7 +22,10 @@ export class ScannerService {
       throw new BadRequestException('Invalid QR format');
     }
 
-    const logBase = { scannerId, rawPayload: payload };
+    const logBase: any = { rawPayload: payload };
+    if (scannerId) {
+      logBase.scannerId = new Types.ObjectId(scannerId);
+    }
 
     // Atomic in-process lock to prevent duplicate scans
     const lockKey = `lock:${sigToSearch}`;
@@ -48,7 +51,7 @@ export class ScannerService {
       }
 
       const id = ticket._id.toString();
-      (logBase as any)['ticketId'] = id;
+      logBase.ticketId = new Types.ObjectId(id);
 
       // Extract eventDate for time window checking
       let eventDate = payload.d || ticket.date;

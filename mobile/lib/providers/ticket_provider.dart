@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../models/ticket_model.dart';
 import '../services/api_service.dart';
+import '../services/database_helper.dart';
 
 class TicketProvider extends ChangeNotifier {
   List<TicketModel> _tickets = [];
@@ -21,6 +24,16 @@ class TicketProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
+    String? localUserId;
+    try {
+      const secureStorage = FlutterSecureStorage();
+      final userDataStr = await secureStorage.read(key: 'user_data');
+      if (userDataStr != null) {
+        final userData = jsonDecode(userDataStr);
+        localUserId = userData['_id'] ?? userData['id'];
+      }
+    } catch (_) {}
+
     try {
       final res = await ApiService.getMyTickets();
       if (res['success'] == true) {
@@ -29,11 +42,24 @@ class TicketProvider extends ChangeNotifier {
             .map((t) => TicketModel.fromJson(t as Map<String, dynamic>))
             .toList();
         _tickets.sort((a, b) => b.purchasedAt.compareTo(a.purchasedAt));
+        
+        // Cache tickets to database on successful network fetch
+        if (_tickets.isNotEmpty) {
+          await DatabaseHelper.instance.saveTickets(_tickets);
+        }
       } else {
         _errorMessage = res['message'] ?? 'Failed to load tickets';
+        if (localUserId != null) {
+          _tickets = await DatabaseHelper.instance.getCachedTickets(localUserId);
+        }
       }
     } catch (e) {
-      _errorMessage = 'Network error. Please try again.';
+      _errorMessage = 'Operating offline. Showing cached passes.';
+      if (localUserId != null) {
+        _tickets = await DatabaseHelper.instance.getCachedTickets(localUserId);
+      } else {
+        _errorMessage = 'Network error. Please try again.';
+      }
     }
 
     _isLoading = false;

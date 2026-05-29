@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../services/api_service.dart';
@@ -14,12 +15,22 @@ class ScannerScreen extends StatefulWidget {
 }
 
 class _ScannerScreenState extends State<ScannerScreen>
-    with SingleTickerProviderStateMixin {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   MobileScannerController? _controller;
   bool _isProcessing = false;
   String? _lastResult;
   bool _success = false;
   Map<String, dynamic>? _ticketData;
+  final Map<String, DateTime> _localScanLock = {};
+
+  // #7 Scan counter
+  int _sessionScanCount = 0;
+
+  // #8 Countdown ring for auto-dismiss
+  int _dismissCountdown = 0;
+
+  // #6 Local torch state (mobile_scanner v5 removed torchState notifier)
+  bool _torchOn = false;
 
   late AnimationController _laserController;
   late Animation<double> _laserAnimation;
@@ -27,10 +38,14 @@ class _ScannerScreenState extends State<ScannerScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // #16 camera flip supported via switchCamera()
     _controller = MobileScannerController(
       detectionSpeed: DetectionSpeed.normal,
       facing: CameraFacing.back,
+      torchEnabled: false,
     );
+    _torchOn = false;
 
     // Futuristic laser scanning line sweep
     _laserController = AnimationController(
@@ -45,17 +60,41 @@ class _ScannerScreenState extends State<ScannerScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller?.dispose();
     _laserController.dispose();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (_controller == null || !_controller!.value.isInitialized) return;
+
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      _controller?.stop();
+    } else if (state == AppLifecycleState.resumed) {
+      _controller?.start();
+    }
+  }
+
   Future<void> _onDetect(BarcodeCapture capture) async {
-    if (_isProcessing || _lastResult != null) return;
+    if (_isProcessing) return;
     final barcode = capture.barcodes.firstOrNull;
     if (barcode?.rawValue == null) return;
 
     final qrData = barcode!.rawValue!;
+
+    // In-memory local lock to debounce scanning of the EXACT same QR code within 3 seconds
+    final now = DateTime.now();
+    final lockTime = _localScanLock[qrData];
+    if (lockTime != null && now.difference(lockTime).inSeconds < 3) {
+      debugPrint('Local Debounce: Duplicate scan of $qrData ignored.');
+      return;
+    }
+    _localScanLock[qrData] = now;
+
     debugPrint('ScannerScreen._onDetect() called with QR: $qrData');
 
     setState(() {
@@ -67,42 +106,72 @@ class _ScannerScreenState extends State<ScannerScreen>
     try {
       final res = await ApiService.scanQr(qrData);
       if (!mounted) return;
+
+      final bool isSuccess = res['success'] == true;
+
+      // Trigger tactile haptics based on success/error status
+      if (isSuccess) {
+        await HapticFeedback.lightImpact();
+      } else {
+        await HapticFeedback.vibrate();
+      }
+
       setState(() {
-        _success = res['success'] == true;
-        _lastResult = res['success'] == true
+        _success = isSuccess;
+        _lastResult = isSuccess
             ? 'Ticket verified successfully!'
             : (res['message'] ?? 'Invalid ticket');
         _ticketData = res['ticket'];
         _isProcessing = false;
+        // #7 increment counter only on successful scans
+        if (isSuccess) _sessionScanCount++;
       });
 
-      // Auto-reset after 5 seconds
-      Future.delayed(const Duration(seconds: 5), () {
-        if (mounted) {
-          setState(() {
-            _lastResult = null;
-            _ticketData = null;
-          });
-        }
-      });
+      // #8 Extended auto-dismiss: 8 seconds + countdown
+      _startDismissCountdown();
     } catch (e) {
       if (!mounted) return;
+
+      await HapticFeedback.vibrate();
+
       setState(() {
         _success = false;
         _lastResult = 'Network error. Try again.';
         _isProcessing = false;
       });
 
-      // Auto-reset after 5 seconds even on network error
-      Future.delayed(const Duration(seconds: 5), () {
-        if (mounted) {
-          setState(() {
-            _lastResult = null;
-            _ticketData = null;
-          });
-        }
+      // #8 Auto-reset after 8 seconds even on network error
+      _startDismissCountdown();
+    }
+  }
+
+  // #8 Countdown ring logic
+  void _startDismissCountdown() {
+    setState(() => _dismissCountdown = 8);
+    _tickCountdown();
+  }
+
+  void _tickCountdown() async {
+    for (int i = 8; i > 0; i--) {
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted || _lastResult == null) break;
+      setState(() => _dismissCountdown = i - 1);
+    }
+    if (mounted && _lastResult != null) {
+      setState(() {
+        _lastResult = null;
+        _ticketData = null;
+        _dismissCountdown = 0;
       });
     }
+  }
+
+  void _clearResult() {
+    setState(() {
+      _lastResult = null;
+      _ticketData = null;
+      _dismissCountdown = 0;
+    });
   }
 
   @override
@@ -119,60 +188,138 @@ class _ScannerScreenState extends State<ScannerScreen>
             SafeArea(
               child: Column(
                 children: [
-                  // Top bar
+                  // Top bar — #6 torch state, #7 scan counter, #16 camera flip
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                     child: Row(
                       children: [
-                        GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                          child: ClipOval(
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                              child: Container(
-                                width: 42,
-                                height: 42,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.08),
-                                  border: Border.all(color: Colors.white.withOpacity(0.1)),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Center(
-                                  child: Icon(Icons.arrow_back_ios_new,
-                                      color: AppColors.textPrimary, size: 16),
+                        // Back button
+                        Semantics(
+                          label: 'Go back',
+                          child: GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: ClipOval(
+                              child: BackdropFilter(
+                                filter:
+                                    ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                child: Container(
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.08),
+                                    border: Border.all(
+                                        color: Colors.white.withOpacity(0.1)),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Center(
+                                    child: Icon(Icons.arrow_back_ios_new,
+                                        color: AppColors.textPrimary, size: 16),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                        const Expanded(
-                          child: Text(
-                            'Gate Scanner',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
-                              letterSpacing: -0.5,
-                            ),
-                            textAlign: TextAlign.center,
+
+                        // Title + #7 scan counter
+                        Expanded(
+                          child: Column(
+                            children: [
+                              const Text(
+                                'Gate Scanner',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                  letterSpacing: -0.5,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              if (_sessionScanCount > 0)
+                                Text(
+                                  '✓ $_sessionScanCount scanned',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.success,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                            ],
                           ),
                         ),
-                        GestureDetector(
-                          onTap: () => _controller?.toggleTorch(),
-                          child: ClipOval(
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                              child: Container(
-                                width: 42,
-                                height: 42,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.08),
-                                  border: Border.all(color: Colors.white.withOpacity(0.1)),
-                                  shape: BoxShape.circle,
+
+                        // #16 Camera flip button
+                        Semantics(
+                          label: 'Flip camera',
+                          child: GestureDetector(
+                            onTap: () => _controller?.switchCamera(),
+                            child: ClipOval(
+                              child: BackdropFilter(
+                                filter:
+                                    ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                child: Container(
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.08),
+                                    border: Border.all(
+                                        color: Colors.white.withOpacity(0.1)),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Center(
+                                    child: Icon(Icons.flip_camera_ios_rounded,
+                                        color: AppColors.textSecondary,
+                                        size: 18),
+                                  ),
                                 ),
-                                child: const Center(
-                                  child: Icon(Icons.flashlight_on,
-                                      color: AppColors.textSecondary, size: 20),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 8),
+
+                        // #6 Torch with local state (_torchOn bool)
+                        Semantics(
+                          label: _torchOn ? 'Turn off torch' : 'Turn on torch',
+                          child: GestureDetector(
+                            onTap: () {
+                              _controller?.toggleTorch();
+                              setState(() => _torchOn = !_torchOn);
+                            },
+                            child: ClipOval(
+                              child: BackdropFilter(
+                                filter:
+                                    ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 250),
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    color: _torchOn
+                                        ? const Color(0xFFFFB74D)
+                                            .withOpacity(0.2)
+                                        : Colors.white.withOpacity(0.08),
+                                    border: Border.all(
+                                      color: _torchOn
+                                          ? const Color(0xFFFFB74D)
+                                              .withOpacity(0.6)
+                                          : Colors.white.withOpacity(0.1),
+                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Icon(
+                                      _torchOn
+                                          ? Icons.flashlight_on
+                                          : Icons.flashlight_off,
+                                      color: _torchOn
+                                          ? const Color(0xFFFFB74D)
+                                          : AppColors.textSecondary,
+                                      size: 20,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -237,7 +384,8 @@ class _ScannerScreenState extends State<ScannerScreen>
                                               ),
                                               boxShadow: [
                                                 BoxShadow(
-                                                  color: frameColor.withOpacity(0.8),
+                                                  color: frameColor
+                                                      .withOpacity(0.8),
                                                   blurRadius: 10,
                                                   spreadRadius: 1.5,
                                                 )
@@ -251,52 +399,68 @@ class _ScannerScreenState extends State<ScannerScreen>
                                     // L-shaped Corner Brackets
                                     // Top-left
                                     Positioned(
-                                      top: 0, left: 0,
+                                      top: 0,
+                                      left: 0,
                                       child: Container(
-                                        width: 24, height: 24,
+                                        width: 24,
+                                        height: 24,
                                         decoration: BoxDecoration(
                                           border: Border(
-                                            top: BorderSide(color: frameColor, width: 4.5),
-                                            left: BorderSide(color: frameColor, width: 4.5),
+                                            top: BorderSide(
+                                                color: frameColor, width: 4.5),
+                                            left: BorderSide(
+                                                color: frameColor, width: 4.5),
                                           ),
                                         ),
                                       ),
                                     ),
                                     // Top-right
                                     Positioned(
-                                      top: 0, right: 0,
+                                      top: 0,
+                                      right: 0,
                                       child: Container(
-                                        width: 24, height: 24,
+                                        width: 24,
+                                        height: 24,
                                         decoration: BoxDecoration(
                                           border: Border(
-                                            top: BorderSide(color: frameColor, width: 4.5),
-                                            right: BorderSide(color: frameColor, width: 4.5),
+                                            top: BorderSide(
+                                                color: frameColor, width: 4.5),
+                                            right: BorderSide(
+                                                color: frameColor, width: 4.5),
                                           ),
                                         ),
                                       ),
                                     ),
                                     // Bottom-left
                                     Positioned(
-                                      bottom: 0, left: 0,
+                                      bottom: 0,
+                                      left: 0,
                                       child: Container(
-                                        width: 24, height: 24,
+                                        width: 24,
+                                        height: 24,
                                         decoration: BoxDecoration(
                                           border: Border(
-                                            bottom: BorderSide(color: frameColor, width: 4.5),
-                                            left: BorderSide(color: frameColor, width: 4.5),
+                                            bottom: BorderSide(
+                                                color: frameColor, width: 4.5),
+                                            left: BorderSide(
+                                                color: frameColor, width: 4.5),
                                           ),
                                         ),
                                       ),
                                     ),
                                     // Bottom-right
                                     Positioned(
-                                      bottom: 0, right: 0,
+                                      bottom: 0,
+                                      right: 0,
                                       child: Container(
-                                        width: 24, height: 24,
+                                        width: 24,
+                                        height: 24,
                                         decoration: BoxDecoration(
                                           border: Border(
-                                            bottom: BorderSide(color: frameColor, width: 4.5),
-                                            right: BorderSide(color: frameColor, width: 4.5),
+                                            bottom: BorderSide(
+                                                color: frameColor, width: 4.5),
+                                            right: BorderSide(
+                                                color: frameColor, width: 4.5),
                                           ),
                                         ),
                                       ),
@@ -313,14 +477,15 @@ class _ScannerScreenState extends State<ScannerScreen>
 
                   const SizedBox(height: 24),
 
-                  // Results slide panel
+                  // Results slide panel — #8 with countdown ring + Clear button
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Stack(
                       children: [
-                        // We use a clean interactive builder to slide-in/slide-out the results
                         AnimatedSlide(
-                          offset: _lastResult != null ? Offset.zero : const Offset(0, 0.4),
+                          offset: _lastResult != null
+                              ? Offset.zero
+                              : const Offset(0, 0.4),
                           duration: const Duration(milliseconds: 400),
                           curve: Curves.easeOutBack,
                           child: AnimatedOpacity(
@@ -334,33 +499,57 @@ class _ScannerScreenState extends State<ScannerScreen>
                                     borderRadius: 18,
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Row(
                                           children: [
-                                            Container(
-                                              padding: const EdgeInsets.all(8),
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                color: (_success
-                                                        ? AppColors.success
-                                                        : AppColors.error)
-                                                    .withOpacity(0.12),
-                                                border: Border.all(
-                                                  color: (_success
+                                            // #8 Countdown ring
+                                            SizedBox(
+                                              width: 44,
+                                              height: 44,
+                                              child: Stack(
+                                                alignment: Alignment.center,
+                                                children: [
+                                                  CircularProgressIndicator(
+                                                    value:
+                                                        _dismissCountdown / 8,
+                                                    strokeWidth: 2.5,
+                                                    backgroundColor: Colors
+                                                        .white
+                                                        .withOpacity(0.1),
+                                                    valueColor:
+                                                        AlwaysStoppedAnimation<
+                                                            Color>(
+                                                      _success
                                                           ? AppColors.success
-                                                          : AppColors.error)
-                                                      .withOpacity(0.3),
-                                                ),
-                                              ),
-                                              child: Icon(
-                                                _success
-                                                    ? Icons.verified_user_rounded
-                                                    : Icons.gpp_bad_rounded,
-                                                color: _success
-                                                    ? AppColors.success
-                                                    : AppColors.error,
-                                                size: 28,
+                                                          : AppColors.error,
+                                                    ),
+                                                  ),
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.all(6),
+                                                    decoration: BoxDecoration(
+                                                      shape: BoxShape.circle,
+                                                      color: (_success
+                                                              ? AppColors
+                                                                  .success
+                                                              : AppColors.error)
+                                                          .withOpacity(0.12),
+                                                    ),
+                                                    child: Icon(
+                                                      _success
+                                                          ? Icons
+                                                              .verified_user_rounded
+                                                          : Icons
+                                                              .gpp_bad_rounded,
+                                                      color: _success
+                                                          ? AppColors.success
+                                                          : AppColors.error,
+                                                      size: 20,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                             const SizedBox(width: 14),
@@ -377,7 +566,8 @@ class _ScannerScreenState extends State<ScannerScreen>
                                                       color: _success
                                                           ? AppColors.success
                                                           : AppColors.error,
-                                                      fontWeight: FontWeight.w900,
+                                                      fontWeight:
+                                                          FontWeight.w900,
                                                       fontSize: 12,
                                                       letterSpacing: 1.5,
                                                     ),
@@ -386,12 +576,37 @@ class _ScannerScreenState extends State<ScannerScreen>
                                                   Text(
                                                     _lastResult!,
                                                     style: const TextStyle(
-                                                      color: AppColors.textPrimary,
-                                                      fontWeight: FontWeight.bold,
+                                                      color:
+                                                          AppColors.textPrimary,
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                       fontSize: 15,
                                                     ),
                                                   ),
                                                 ],
+                                              ),
+                                            ),
+                                            // #8 Manual Clear button
+                                            Semantics(
+                                              label: 'Clear result',
+                                              child: GestureDetector(
+                                                onTap: _clearResult,
+                                                child: Container(
+                                                  padding:
+                                                      const EdgeInsets.all(6),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white
+                                                        .withOpacity(0.08),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                  ),
+                                                  child: const Icon(
+                                                      Icons.close_rounded,
+                                                      color:
+                                                          AppColors.textMuted,
+                                                      size: 18),
+                                                ),
                                               ),
                                             ),
                                           ],
@@ -404,12 +619,14 @@ class _ScannerScreenState extends State<ScannerScreen>
                                             _buildDetailRow(
                                                 Icons.person_rounded,
                                                 'Pass Holder Name',
-                                                _ticketData!['user']['name'] ?? 'N/A'),
+                                                _ticketData!['user']['name'] ??
+                                                    'N/A'),
                                             const SizedBox(height: 10),
                                             _buildDetailRow(
                                                 Icons.phone_iphone_rounded,
                                                 'Mobile Number',
-                                                _ticketData!['user']['phone'] ?? 'N/A'),
+                                                _ticketData!['user']['phone'] ??
+                                                    'N/A'),
                                             const SizedBox(height: 10),
                                           ],
                                           _buildDetailRow(
@@ -437,7 +654,7 @@ class _ScannerScreenState extends State<ScannerScreen>
                                     children: [
                                       Icon(Icons.qr_code_scanner_rounded,
                                           color: AppColors.primary),
-                                      const SizedBox(width: 12),
+                                      SizedBox(width: 12),
                                       Text(
                                         'Align QR code inside scanner frame',
                                         style: TextStyle(
@@ -469,7 +686,8 @@ class _ScannerScreenState extends State<ScannerScreen>
                       color: Colors.black.withOpacity(0.55),
                       child: Center(
                         child: GlassCard(
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 32, vertical: 24),
                           borderRadius: 20,
                           borderColor: AppColors.primary.withOpacity(0.3),
                           child: const Column(
@@ -477,7 +695,8 @@ class _ScannerScreenState extends State<ScannerScreen>
                             children: [
                               CircularProgressIndicator(
                                 strokeWidth: 3.5,
-                                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    AppColors.primary),
                               ),
                               SizedBox(height: 20),
                               Text(
@@ -530,7 +749,10 @@ class _ScannerScreenState extends State<ScannerScreen>
             children: [
               Text(
                 label,
-                style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 2),
               Text(

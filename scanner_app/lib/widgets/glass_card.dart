@@ -17,7 +17,7 @@ class GlassCard extends StatefulWidget {
     this.borderRadius = 20,
     this.padding = const EdgeInsets.all(20),
     this.borderColor,
-    this.blurSigma = 10,
+    this.blurSigma = 5, // #3 Reduced from 10 to 5 for major GPU optimization
     this.gradient,
     this.onTap,
   });
@@ -44,7 +44,8 @@ class _GlassCardState extends State<GlassCard> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(widget.borderRadius!),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: widget.blurSigma, sigmaY: widget.blurSigma),
+            filter: ImageFilter.blur(
+                sigmaX: widget.blurSigma, sigmaY: widget.blurSigma),
             child: Container(
               padding: widget.padding,
               decoration: BoxDecoration(
@@ -144,21 +145,22 @@ class _GradientButtonState extends State<GradientButton>
           width: double.infinity,
           height: widget.height,
           decoration: BoxDecoration(
-            gradient: widget.onPressed == null
+            gradient: (widget.onPressed == null && !widget.isLoading)
                 ? const LinearGradient(
                     colors: [Color(0xFF3A3A4A), Color(0xFF2A2A38)],
                   )
                 : (widget.gradient ?? AppColors.gradientPrimary),
             borderRadius: BorderRadius.circular(14),
-            boxShadow: widget.onPressed != null && !_isPressed
-                ? [
-                    BoxShadow(
-                      color: shadowColor,
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ]
-                : [],
+            boxShadow:
+                (widget.onPressed != null || widget.isLoading) && !_isPressed
+                    ? [
+                        BoxShadow(
+                          color: shadowColor,
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ]
+                    : [],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(14),
@@ -171,15 +173,17 @@ class _GradientButtonState extends State<GradientButton>
                     builder: (_, __) {
                       return ShaderMask(
                         shaderCallback: (bounds) => LinearGradient(
-                          begin: Alignment(-1.5 + _shimmerController.value * 3, -0.5),
-                          end: Alignment(-0.5 + _shimmerController.value * 3, 0.5),
+                          begin: Alignment(
+                              -1.5 + _shimmerController.value * 3, -0.5),
+                          end: Alignment(
+                              -0.5 + _shimmerController.value * 3, 0.5),
                           colors: [
                             Colors.white.withOpacity(0.0),
                             Colors.white.withOpacity(0.25),
                             Colors.white.withOpacity(0.0),
                           ],
                         ).createShader(bounds),
-                        blendMode: BlendMode.srcATop,
+                        blendMode: BlendMode.srcIn,
                         child: Container(color: Colors.white),
                       );
                     },
@@ -190,7 +194,8 @@ class _GradientButtonState extends State<GradientButton>
                         height: 22,
                         child: CircularProgressIndicator(
                           strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       )
                     : Row(
@@ -322,7 +327,8 @@ class _StatusBadgeState extends State<StatusBadge>
               width: 6,
               height: 6,
               decoration: BoxDecoration(
-                color: widget.color.withOpacity(widget.animate ? _pulse.value : 1.0),
+                color: widget.color
+                    .withOpacity(widget.animate ? _pulse.value : 1.0),
                 shape: BoxShape.circle,
                 boxShadow: widget.animate
                     ? [

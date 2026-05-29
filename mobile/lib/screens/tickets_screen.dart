@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/shimmer_block.dart';
 import '../widgets/status_badge.dart';
+import 'home_screen.dart';
 
 class TicketsScreen extends StatefulWidget {
   const TicketsScreen({super.key});
@@ -48,7 +49,7 @@ class _TicketsScreenState extends State<TicketsScreen>
             children: [
               // ── Header ──────────────────────────────────────────────
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                 child: Row(
                   children: [
                     const Expanded(
@@ -82,7 +83,7 @@ class _TicketsScreenState extends State<TicketsScreen>
 
               // ── Gradient Tab Bar ─────────────────────────────────────
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
@@ -171,7 +172,7 @@ class _TicketList extends StatelessWidget {
       child: isLoading
           ? ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               itemCount: 3,
               itemBuilder: (ctx, i) => const TicketCardSkeleton(),
             )
@@ -203,6 +204,52 @@ class _TicketList extends StatelessWidget {
                           Text(emptySubtitle,
                               style:
                                   const TextStyle(color: AppColors.textMuted)),
+                          if (emptyLabel == 'No active tickets') ...[
+                            const SizedBox(height: 20),
+                            Semantics(
+                              label: 'Browse Events',
+                              child: Builder(
+                                builder: (ctx) => GestureDetector(
+                                  onTap: () {
+                                    final homeState =
+                                        homeScreenKey.currentState;
+                                    if (homeState is HomeScreenState) {
+                                      (homeState as HomeScreenState)
+                                          .setIndex(1);
+                                    }
+                                    Navigator.pop(ctx);
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      gradient: AppColors.gradientPrimary,
+                                      borderRadius: BorderRadius.circular(16),
+                                      boxShadow: [
+                                        BoxShadow(
+                                            color: AppColors.primary
+                                                .withOpacity(0.35),
+                                            blurRadius: 12),
+                                      ],
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.event_rounded,
+                                            color: Colors.white, size: 16),
+                                        SizedBox(width: 8),
+                                        Text('Browse Events',
+                                            style: TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -210,7 +257,7 @@ class _TicketList extends StatelessWidget {
                 )
               : ListView.builder(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 100),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
                   itemCount: tickets.length,
                   itemBuilder: (ctx, i) => _TicketCard(ticket: tickets[i]),
                 ),

@@ -5,8 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
-import '../widgets/glass_card.dart';
 import '../widgets/gradient_button.dart';
+import '../widgets/custom_snackbar.dart';
 
 class OtpScreen extends StatefulWidget {
   const OtpScreen({super.key});
@@ -16,9 +16,11 @@ class OtpScreen extends StatefulWidget {
 }
 
 class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin {
-  final List<TextEditingController> _controllers =
-      List.generate(6, (_) => TextEditingController());
-  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
+  final TextEditingController _otpController = TextEditingController();
+  final FocusNode _otpFocusNode = FocusNode();
+
+  // ValueNotifier so only the OTP boxes rebuild on each keystroke
+  final ValueNotifier<String> _otpNotifier = ValueNotifier('');
 
   int _resendCountdown = 60;
   bool _canResend = false;
@@ -73,7 +75,7 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin {
     _entranceController.forward();
     _startCountdown();
     Future.delayed(
-        const Duration(milliseconds: 350), () => _focusNodes[0].requestFocus());
+        const Duration(milliseconds: 350), () => _otpFocusNode.requestFocus());
   }
 
   void _startCountdown() async {
@@ -88,7 +90,7 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin {
     }
   }
 
-  String get _otpValue => _controllers.map((c) => c.text).join();
+  String get _otpValue => _otpController.text;
 
   Future<void> _verify() async {
     final otp = _otpValue;
@@ -108,8 +110,9 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin {
     } else if (mounted) {
       _triggerError();
       _showError(auth.errorMessage ?? 'Invalid OTP');
-      for (var c in _controllers) c.clear();
-      _focusNodes[0].requestFocus();
+      _otpController.clear();
+      _otpNotifier.value = '';
+      _otpFocusNode.requestFocus();
     }
   }
 
@@ -122,18 +125,18 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin {
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: AppColors.error,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ));
+    CustomSnackBar.show(
+      context,
+      message: msg,
+      type: SnackBarType.error,
+    );
   }
 
   @override
   void dispose() {
-    for (var c in _controllers) c.dispose();
-    for (var f in _focusNodes) f.dispose();
+    _otpController.dispose();
+    _otpFocusNode.dispose();
+    _otpNotifier.dispose();
     _entranceController.dispose();
     _shakeController.dispose();
     _blob1Controller.dispose();
@@ -146,7 +149,7 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin {
     final auth = context.watch<AuthProvider>();
 
     return Scaffold(
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: true,
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -177,11 +180,12 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin {
                 child: SlideTransition(
                   position: _slide,
                   child: SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
                     child: Padding(
-                      padding: EdgeInsets.only(
-                        left: 24,
-                        right: 24,
-                        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                      padding: const EdgeInsets.only(
+                        left: 16,
+                        right: 16,
+                        bottom: 24,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -258,46 +262,58 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin {
 
                           const SizedBox(height: 48),
 
-                          // OTP boxes with shake animation
-                          AnimatedBuilder(
-                            animation: _shake,
-                            builder: (_, child) => Transform.translate(
-                              offset: Offset(_shake.value, 0),
-                              child: child,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: List.generate(
-                                6,
-                                (i) => _OtpBox(
-                                  controller: _controllers[i],
-                                  focusNode: _focusNodes[i],
-                                  hasError: _hasError,
-                                  onChanged: (val) {
-                                    if (val.isNotEmpty && i < 5) {
-                                      _focusNodes[i + 1].requestFocus();
-                                    }
-                                    if (val.isEmpty && i > 0) {
-                                      _focusNodes[i - 1].requestFocus();
-                                    }
-                                    setState(() {});
-                                    if (_otpValue.length == 6) _verify();
-                                  },
-                                ),
-                              ),
-                            ),
+                          // OTP boxes — only this subtree rebuilds on typing
+                          _OtpBoxes(
+                            otpNotifier: _otpNotifier,
+                            shakeAnimation: _shake,
+                            focusNode: _otpFocusNode,
+                            controller: _otpController,
+                            hasError: _hasError,
+                            onChanged: (val) {
+                              _otpNotifier.value = val;
+                              if (val.length == 6) _verify();
+                            },
                           ),
 
                           const SizedBox(height: 16),
 
                           // Digit counter
-                          AnimatedOpacity(
-                            opacity: _otpValue.isNotEmpty ? 1.0 : 0.0,
-                            duration: const Duration(milliseconds: 200),
-                            child: Text(
-                              '${_otpValue.length} / 6 digits entered',
-                              style: const TextStyle(
-                                  color: AppColors.textMuted, fontSize: 12),
+                          ValueListenableBuilder<String>(
+                            valueListenable: _otpNotifier,
+                            builder: (_, val, __) => AnimatedOpacity(
+                              opacity: val.isNotEmpty ? 1.0 : 0.0,
+                              duration: const Duration(milliseconds: 200),
+                              child: Text(
+                                '${val.length} / 6 digits entered',
+                                style: const TextStyle(
+                                    color: AppColors.textMuted, fontSize: 12),
+                              ),
+                            ),
+                          ),
+
+                          // #18 Paste OTP button
+                          Center(
+                            child: TextButton.icon(
+                              onPressed: () async {
+                                final data = await Clipboard.getData(
+                                    Clipboard.kTextPlain);
+                                final text = data?.text?.trim() ?? '';
+                                final digits =
+                                    text.replaceAll(RegExp(r'[^0-9]'), '');
+                                if (digits.length >= 6) {
+                                  final otp = digits.substring(0, 6);
+                                  _otpController.text = otp;
+                                  _otpNotifier.value = otp;
+                                  _verify();
+                                }
+                              },
+                              icon: const Icon(Icons.content_paste_rounded,
+                                  size: 14, color: AppColors.primary),
+                              label: const Text('Paste OTP',
+                                  style: TextStyle(
+                                      color: AppColors.primary,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600)),
                             ),
                           ),
 
@@ -386,105 +402,139 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin {
       );
 }
 
-class _OtpBox extends StatefulWidget {
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final bool hasError;
-  final ValueChanged<String> onChanged;
-
-  const _OtpBox({
-    required this.controller,
+// ---------------------------------------------------------------------------
+// Separate StatelessWidget so it has its own Element — rebuilds are isolated
+// ---------------------------------------------------------------------------
+class _OtpBoxes extends StatelessWidget {
+  const _OtpBoxes({
+    required this.otpNotifier,
+    required this.shakeAnimation,
     required this.focusNode,
+    required this.controller,
     required this.hasError,
     required this.onChanged,
   });
 
-  @override
-  State<_OtpBox> createState() => _OtpBoxState();
-}
-
-class _OtpBoxState extends State<_OtpBox> {
-  bool _isFocused = false;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.focusNode.addListener(_onFocusChange);
-  }
-
-  @override
-  void dispose() {
-    widget.focusNode.removeListener(_onFocusChange);
-    super.dispose();
-  }
-
-  void _onFocusChange() {
-    if (mounted) {
-      setState(() {
-        _isFocused = widget.focusNode.hasFocus;
-      });
-    }
-  }
+  final ValueNotifier<String> otpNotifier;
+  final Animation<double> shakeAnimation;
+  final FocusNode focusNode;
+  final TextEditingController controller;
+  final bool hasError;
+  final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final isFilled = widget.controller.text.isNotEmpty;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      width: 46,
-      height: 58,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        gradient: isFilled ? AppColors.gradientPrimary : null,
-        color: isFilled ? null : AppColors.surface,
-        border: Border.all(
-          color: widget.hasError
-              ? AppColors.error
-              : isFilled
-                  ? Colors.transparent
-                  : _isFocused
-                      ? AppColors.primary
-                      : AppColors.border,
-          width: _isFocused || isFilled ? 1.5 : 1.0,
-        ),
-        boxShadow: isFilled
-            ? [
-                BoxShadow(
-                    color: AppColors.primary.withOpacity(0.35), blurRadius: 14)
-              ]
-            : widget.hasError
-                ? [
-                    BoxShadow(
-                        color: AppColors.error.withOpacity(0.3), blurRadius: 8)
-                  ]
-                : [],
+    return AnimatedBuilder(
+      animation: shakeAnimation,
+      builder: (_, child) => Transform.translate(
+        offset: Offset(shakeAnimation.value, 0),
+        child: child,
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(13),
-        child: Center(
-          child: TextField(
-            controller: widget.controller,
-            focusNode: widget.focusNode,
-            textAlign: TextAlign.center,
-            keyboardType: TextInputType.number,
-            maxLength: 1,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: isFilled ? Colors.white : AppColors.textPrimary,
+      child: GestureDetector(
+        onTap: () => focusNode.requestFocus(),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Hidden TextField that captures input — no setState at parent level
+            Opacity(
+              opacity: 0,
+              child: SizedBox(
+                width: double.infinity,
+                height: 58,
+                child: TextField(
+                  key: const Key('mobile_otp_hidden_textfield'),
+                  controller: controller,
+                  focusNode: focusNode,
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  showCursor: false,
+                  cursorColor: Colors.transparent,
+                  enableSuggestions: false,
+                  autocorrect: false,
+                  enableInteractiveSelection: false,
+                  style: const TextStyle(
+                    color: Colors.transparent,
+                    fontSize: 1,
+                  ),
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(
+                    counterText: '',
+                    border: InputBorder.none,
+                    filled: false,
+                  ),
+                  onChanged: onChanged,
+                ),
+              ),
             ),
-            decoration: const InputDecoration(
-              counterText: '',
-              border: InputBorder.none,
-              filled: false,
+            // Visual OTP boxes — only rebuild via ValueListenableBuilder
+            IgnorePointer(
+              child: ValueListenableBuilder<String>(
+                valueListenable: otpNotifier,
+                builder: (_, text, __) => Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: List.generate(6, (i) {
+                    final isFilled = text.length > i;
+                    final char = isFilled ? text[i] : '';
+                    final isCurrent = text.length == i;
+                    final isFocused = focusNode.hasFocus && isCurrent;
+
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 46,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        gradient: isFilled ? AppColors.gradientPrimary : null,
+                        color: isFilled ? null : AppColors.surface,
+                        border: Border.all(
+                          color: hasError
+                              ? AppColors.error
+                              : isFilled
+                                  ? Colors.transparent
+                                  : isFocused
+                                      ? AppColors.primary
+                                      : AppColors.border,
+                          width: isFocused || isFilled ? 1.5 : 1.0,
+                        ),
+                        boxShadow: isFilled
+                            ? [
+                                BoxShadow(
+                                    color: AppColors.primary.withOpacity(0.35),
+                                    blurRadius: 14)
+                              ]
+                            : hasError
+                                ? [
+                                    BoxShadow(
+                                        color: AppColors.error.withOpacity(0.3),
+                                        blurRadius: 8)
+                                  ]
+                                : isFocused
+                                    ? [
+                                        BoxShadow(
+                                            color: AppColors.primary
+                                                .withOpacity(0.2),
+                                            blurRadius: 10,
+                                            spreadRadius: 0)
+                                      ]
+                                    : [],
+                      ),
+                      child: Center(
+                        child: Text(
+                          char,
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color:
+                                isFilled ? Colors.white : AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
             ),
-            onChanged: (val) {
-              setState(() {});
-              widget.onChanged(val);
-            },
-          ),
+          ],
         ),
       ),
     );

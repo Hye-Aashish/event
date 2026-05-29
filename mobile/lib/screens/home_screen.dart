@@ -76,7 +76,7 @@ class _FloatingNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(32),
         child: BackdropFilter(
@@ -112,7 +112,7 @@ class _FloatingNavBar extends StatelessWidget {
                     index: 1,
                     selectedIndex: selectedIndex,
                     onTap: onTap),
-                _NavItem(
+                _NavItemWithBadge(
                     icon: Icons.confirmation_num_outlined,
                     activeIcon: Icons.confirmation_num_rounded,
                     label: 'Tickets',
@@ -130,6 +130,93 @@ class _FloatingNavBar extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Nav Item With Badge (for Tickets) ──────────────────────────────────────
+class _NavItemWithBadge extends StatelessWidget {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final int index;
+  final int selectedIndex;
+  final ValueChanged<int> onTap;
+
+  const _NavItemWithBadge({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.index,
+    required this.selectedIndex,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tickets = context.watch<TicketProvider>();
+    final hasActive = tickets.activeTickets.isNotEmpty;
+    final isSelected = selectedIndex == index;
+    return GestureDetector(
+      onTap: () => onTap(index),
+      behavior: HitTestBehavior.opaque,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: isSelected
+                ? BoxDecoration(
+                    gradient: AppColors.gradientPrimary,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                          color: AppColors.primary.withOpacity(0.35),
+                          blurRadius: 12),
+                    ],
+                  )
+                : null,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isSelected ? activeIcon : icon,
+                  color: isSelected ? Colors.white : AppColors.textMuted,
+                  size: 20,
+                ),
+                if (isSelected) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          // #9 Red dot badge when there are active tickets
+          if (hasActive && !isSelected)
+            Positioned(
+              top: 4,
+              right: 8,
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: AppColors.error,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -248,7 +335,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
     final h = DateTime.now().hour;
     if (h < 12) return 'Good Morning 🌅';
     if (h < 17) return 'Good Afternoon ☀️';
-    if (h < 20) return 'Good Evening 🌙';
+    if (h < 19) return 'Good Evening 🌙';
     return 'Jai Mata Di 🙏';
   }
 
@@ -376,7 +463,75 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                     ),
                   ),
 
-                  // ── Banner ──────────────────────────────────────────────
+                  // ── QR Shortcut Banner (#1) ──────────────────────────────────
+                  if (!tickets.isLoading && tickets.activeTickets.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                        child: GestureDetector(
+                          onTap: () {
+                            final ticket = tickets.activeTickets.first;
+                            Navigator.pushNamed(context, '/ticket-detail',
+                                arguments: ticket.id);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 14),
+                            decoration: BoxDecoration(
+                              gradient: AppColors.gradientNavratri,
+                              borderRadius: BorderRadius.circular(18),
+                              boxShadow: [
+                                BoxShadow(
+                                    color: AppColors.primary.withOpacity(0.4),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 6)),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.qr_code_rounded,
+                                      color: Colors.white, size: 22),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('Show My QR',
+                                          style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                              letterSpacing: -0.2)),
+                                      Text(
+                                        tickets.activeTickets.first.eventName ??
+                                            'Tap to view your entry QR code',
+                                        style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 12),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(Icons.arrow_forward_ios_rounded,
+                                    color: Colors.white70, size: 16),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // ── Premium Banner ───────────────────────────────────────────────
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
@@ -482,14 +637,32 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                                 icon: Icons.add_card_rounded,
                                 label: 'Buy Ticket',
                                 gradient: AppColors.gradientPrimary,
-                                onTap: () =>
-                                    context.read<HomeScreenState>().setIndex(1),
+                                onTap: () {
+                                  final homeState = homeScreenKey.currentState;
+                                  if (homeState is HomeScreenState) {
+                                    (homeState as HomeScreenState).setIndex(1);
+                                  }
+                                },
                               )),
                               const SizedBox(width: 12),
+                              // Expanded(
+                              //     child: _PressableActionCard(
+                              //   icon: Icons.qr_code_scanner_rounded,
+                              //   label: 'Scan QR',
+                              //   gradient: LinearGradient(
+                              //       colors: [
+                              //         AppColors.secondary,
+                              //         AppColors.secondary.withBlue(255)
+                              //       ],
+                              //       begin: Alignment.topLeft,
+                              //       end: Alignment.bottomRight),
+                              //   onTap: () =>
+                              //       Navigator.pushNamed(context, '/scanner'),
+                              // )),
                               Expanded(
                                   child: _PressableActionCard(
-                                icon: Icons.qr_code_scanner_rounded,
-                                label: 'Scan QR',
+                                icon: Icons.confirmation_num_outlined,
+                                label: 'My Tickets',
                                 gradient: LinearGradient(
                                     colors: [
                                       AppColors.secondary,
@@ -497,8 +670,12 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                                     ],
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight),
-                                onTap: () =>
-                                    Navigator.pushNamed(context, '/scanner'),
+                                onTap: () {
+                                  final homeState = homeScreenKey.currentState;
+                                  if (homeState is HomeScreenState) {
+                                    (homeState as HomeScreenState).setIndex(2);
+                                  }
+                                },
                               )),
                               const SizedBox(width: 12),
                               Expanded(
@@ -990,7 +1167,7 @@ class _PremiumBannerState extends State<_PremiumBanner>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('🪔 Navratri 2024',
+                  const Text('🪔 Navratri 2026',
                       style: TextStyle(
                           color: Colors.white70,
                           fontSize: 12,
@@ -1004,7 +1181,12 @@ class _PremiumBannerState extends State<_PremiumBanner>
                           height: 1.3,
                           letterSpacing: -0.3)),
                   GestureDetector(
-                    onTap: () {},
+                    onTap: () {
+                      final homeState = homeScreenKey.currentState;
+                      if (homeState is HomeScreenState) {
+                        (homeState as HomeScreenState).setIndex(1);
+                      }
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
@@ -1113,7 +1295,8 @@ class _PressableActionCardState extends State<_PressableActionCard> {
 }
 
 // Global key for home screen state to allow switching tabs
-final GlobalKey<_HomeScreenState> homeScreenKey = GlobalKey<_HomeScreenState>();
+final GlobalKey<State<HomeScreen>> homeScreenKey =
+    GlobalKey<State<HomeScreen>>();
 
 // Simple interface to access Home Screen State from children
 abstract class HomeScreenState {

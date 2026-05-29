@@ -1,15 +1,128 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/glass_card.dart';
-import '../widgets/gradient_button.dart';
 import '../widgets/shimmer_block.dart';
 import '../widgets/status_badge.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  String _appVersion = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(
+          () => _appVersion = 'v${info.version} • Build ${info.buildNumber}');
+    }
+  }
+
+  void _showEditProfile(BuildContext context, AuthProvider auth) {
+    final nameCtrl = TextEditingController(text: auth.user?.name ?? '');
+    final emailCtrl = TextEditingController(text: auth.user?.email ?? '');
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: GlassCard(
+          borderRadius: 24,
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const Text('Edit Profile',
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                      letterSpacing: -0.4)),
+              const SizedBox(height: 20),
+              _editField(nameCtrl, 'Full Name', Icons.person_outline_rounded),
+              const SizedBox(height: 12),
+              _editField(emailCtrl, 'Email Address', Icons.email_outlined,
+                  type: TextInputType.emailAddress),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: AppColors.gradientPrimary,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: TextButton(
+                    onPressed: () async {
+                      await auth.updateProfile(
+                          name: nameCtrl.text.trim(),
+                          email: emailCtrl.text.trim());
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    },
+                    child: const Text('Save Changes',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _editField(
+    TextEditingController ctrl,
+    String hint,
+    IconData icon, {
+    TextInputType type = TextInputType.text,
+  }) {
+    return GlassCard(
+      borderRadius: 14,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      borderColor: AppColors.primary.withOpacity(0.3),
+      child: TextField(
+        controller: ctrl,
+        keyboardType: type,
+        style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(color: AppColors.textMuted),
+          border: InputBorder.none,
+          prefixIcon: Icon(icon, color: AppColors.primary, size: 18),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,8 +131,7 @@ class ProfileScreen extends StatelessWidget {
 
     return Scaffold(
       body: Container(
-        decoration:
-            const BoxDecoration(gradient: AppColors.gradientBackground),
+        decoration: const BoxDecoration(gradient: AppColors.gradientBackground),
         child: Stack(
           children: [
             // Glow blobs
@@ -46,7 +158,7 @@ class ProfileScreen extends StatelessWidget {
                     // ── Header ───────────────────────────────────────
                     const SliverToBoxAdapter(
                       child: Padding(
-                        padding: EdgeInsets.fromLTRB(24, 20, 24, 0),
+                        padding: EdgeInsets.fromLTRB(16, 20, 16, 0),
                         child: Text('Profile',
                             style: TextStyle(
                                 fontSize: 28,
@@ -56,13 +168,56 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ),
 
-                    // ── Avatar Card ───────────────────────────────────
+                    // ── Avatar Card ────────────────────────────────────
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                         child: auth.isLoading
                             ? const _AvatarSkeleton()
-                            : _AvatarCard(user: user),
+                            : Column(
+                                children: [
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: _AvatarCard(user: user),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  // #5 Edit Profile button
+                                  GestureDetector(
+                                    onTap: () =>
+                                        _showEditProfile(context, auth),
+                                    child: Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 12),
+                                      decoration: BoxDecoration(
+                                        gradient: AppColors.gradientPrimary,
+                                        borderRadius: BorderRadius.circular(14),
+                                        boxShadow: [
+                                          BoxShadow(
+                                              color: AppColors.primary
+                                                  .withOpacity(0.3),
+                                              blurRadius: 12,
+                                              offset: const Offset(0, 4))
+                                        ],
+                                      ),
+                                      child: const Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.edit_outlined,
+                                              color: Colors.white, size: 16),
+                                          SizedBox(width: 8),
+                                          Text('Edit Profile',
+                                              style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                       ),
                     ),
 
@@ -71,7 +226,7 @@ class ProfileScreen extends StatelessWidget {
                     // ── Info Card ──────────────────────────────────────
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: auth.isLoading
                             ? const SkeletonCard(
                                 padding: EdgeInsets.all(16),
@@ -88,29 +243,30 @@ class ProfileScreen extends StatelessWidget {
                                   ShimmerBlock(
                                       width: double.infinity, height: 20),
                                 ]))
-                            : GlassCard(
-                                borderRadius: 20,
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 8, horizontal: 20),
-                                child: Column(
-                                  children: [
-                                    _profileRow(
-                                        Icons.person_outline_rounded,
-                                        'Full Name',
-                                        user?.name ?? 'Not set'),
-                                    _divider(),
-                                    _profileRow(Icons.phone_outlined,
-                                        'Phone', user?.phone ?? 'Not set'),
-                                    _divider(),
-                                    _profileRow(Icons.email_outlined,
-                                        'Email', user?.email ?? 'Not set'),
-                                    _divider(),
-                                    _profileRow(
-                                        Icons.verified_user_outlined,
-                                        'Verification',
-                                        (user?.verificationStatus ?? 'none')
-                                            .toUpperCase()),
-                                  ],
+                            : SizedBox(
+                                width: double.infinity,
+                                child: GlassCard(
+                                  borderRadius: 20,
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 8, horizontal: 20),
+                                  child: Column(
+                                    children: [
+                                      _profileRow(Icons.person_outline_rounded,
+                                          'Full Name', user?.name ?? 'Not set'),
+                                      _divider(),
+                                      _profileRow(Icons.phone_outlined, 'Phone',
+                                          user?.phone ?? 'Not set'),
+                                      _divider(),
+                                      _profileRow(Icons.email_outlined, 'Email',
+                                          user?.email ?? 'Not set'),
+                                      _divider(),
+                                      _profileRow(
+                                          Icons.verified_user_outlined,
+                                          'Verification',
+                                          (user?.verificationStatus ?? 'none')
+                                              .toUpperCase()),
+                                    ],
+                                  ),
                                 ),
                               ),
                       ),
@@ -121,18 +277,17 @@ class ProfileScreen extends StatelessWidget {
                     // ── Menu Tiles ──────────────────────────────────────
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: auth.isLoading
-                            ? const Column(
-                                children: [
-                                  SkeletonCard(
-                                      padding: EdgeInsets.all(28),
-                                      child: SizedBox(width: double.infinity)),
-                                  SizedBox(height: 10),
-                                  SkeletonCard(
-                                      padding: EdgeInsets.all(28),
-                                      child: SizedBox(width: double.infinity)),
-                                ])
+                            ? const Column(children: [
+                                SkeletonCard(
+                                    padding: EdgeInsets.all(28),
+                                    child: SizedBox(width: double.infinity)),
+                                SizedBox(height: 10),
+                                SkeletonCard(
+                                    padding: EdgeInsets.all(28),
+                                    child: SizedBox(width: double.infinity)),
+                              ])
                             : Column(
                                 children: [
                                   _menuTile(
@@ -159,13 +314,29 @@ class ProfileScreen extends StatelessWidget {
                                       AppColors.error,
                                       Color(0xFFFF8A80)
                                     ]),
-                                    onTap: () =>
-                                        _confirmLogout(context, auth),
+                                    onTap: () => _confirmLogout(context, auth),
                                   ),
                                 ],
                               ),
                       ),
                     ),
+
+                    // #13 App version
+                    if (_appVersion.isNotEmpty)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                          child: Center(
+                            child: Text(
+                              _appVersion,
+                              style: const TextStyle(
+                                color: AppColors.textMuted,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
 
                     const SliverToBoxAdapter(child: SizedBox(height: 100)),
                   ],
@@ -239,8 +410,7 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Text(label,
-              style: const TextStyle(
-                  color: AppColors.textMuted, fontSize: 13)),
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
           const Spacer(),
           Flexible(
             child: Text(value,
@@ -279,8 +449,7 @@ class ProfileScreen extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.surface,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('Logout?',
             style: TextStyle(
                 color: AppColors.textPrimary,
@@ -310,8 +479,8 @@ class ProfileScreen extends StatelessWidget {
                 }
               },
               child: const Text('Logout',
-                  style: TextStyle(color: Colors.white,
-                      fontWeight: FontWeight.bold)),
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -327,21 +496,17 @@ class _AvatarCard extends StatelessWidget {
 
   String _initials(String? name) {
     if (name == null || name.isEmpty) return '?';
-    return name
-        .trim()
-        .split(' ')
-        .map((w) => w[0])
-        .take(2)
-        .join()
-        .toUpperCase();
+    return name.trim().split(' ').map((w) => w[0]).take(2).join().toUpperCase();
   }
 
   @override
   Widget build(BuildContext context) {
     return GlassCard(
       borderRadius: 24,
-      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Avatar with ring
           Stack(
@@ -373,7 +538,7 @@ class _AvatarCard extends StatelessWidget {
               Container(
                 width: 90,
                 height: 90,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: AppColors.gradientPrimary,
                 ),
@@ -391,8 +556,7 @@ class _AvatarCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           ShaderMask(
-            shaderCallback: (b) =>
-                AppColors.gradientNavratri.createShader(b),
+            shaderCallback: (b) => AppColors.gradientNavratri.createShader(b),
             child: Text(
               user?.name ?? 'Guest',
               style: const TextStyle(
@@ -404,14 +568,11 @@ class _AvatarCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(user?.phone ?? '',
-              style: const TextStyle(
-                  color: AppColors.textMuted, fontSize: 14)),
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 14)),
           if (user?.isVerified == true) ...[
             const SizedBox(height: 10),
             const StatusBadge(
-                label: '✓ Verified',
-                color: AppColors.success,
-                animate: true),
+                label: '✓ Verified', color: AppColors.success, animate: true),
           ] else if (user?.verificationStatus == 'pending') ...[
             const SizedBox(height: 10),
             const StatusBadge(
@@ -432,10 +593,10 @@ class _AvatarSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
+    return const GlassCard(
       borderRadius: 24,
-      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
-      child: const Column(
+      padding: EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+      child: Column(
         children: [
           ShimmerBlock(width: 90, height: 90, borderRadius: 45),
           SizedBox(height: 16),
@@ -499,8 +660,7 @@ class _PressableMenuTileState extends State<_PressableMenuTile> {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                        color: widget.color.withOpacity(0.35),
-                        blurRadius: 12)
+                        color: widget.color.withOpacity(0.35), blurRadius: 12)
                   ],
                 ),
                 child: Icon(widget.icon, color: Colors.white, size: 20),

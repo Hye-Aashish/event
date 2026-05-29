@@ -10,6 +10,7 @@ import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/gradient_button.dart';
+import '../widgets/custom_snackbar.dart';
 
 class VerificationScreen extends StatefulWidget {
   const VerificationScreen({super.key});
@@ -76,12 +77,11 @@ class _VerificationScreenState extends State<VerificationScreen>
     if (res['success'] == true) {
       _showSuccessDialog();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(res['message'] ?? 'Submission failed'),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ));
+      CustomSnackBar.show(
+        context,
+        message: res['message'] ?? 'Submission failed',
+        type: SnackBarType.error,
+      );
     }
   }
 
@@ -172,7 +172,7 @@ class _VerificationScreenState extends State<VerificationScreen>
                     color: AppColors.primary,
                     child: SingleChildScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(16),
                       child: ConstrainedBox(
                         constraints: BoxConstraints(
                           minHeight: MediaQuery.of(context).size.height - 100,

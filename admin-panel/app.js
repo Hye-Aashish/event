@@ -1,15 +1,23 @@
 // ── Config ────────────────────────────────────────────────────────
-const API = 'http://localhost:3000/api';
+const API = '/api';
 let allEvents = [];
 
 // ── Utility ──────────────────────────────────────────────────────
 async function apiFetch(path, opts = {}) {
+  const token = localStorage.getItem('admin_token');
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
   try {
     const res = await fetch(API + path, {
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       ...opts,
     });
     if (!res.ok) {
+      if (res.status === 401) {
+        adminLogout();
+      }
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || `HTTP ${res.status}`);
     }
@@ -58,14 +66,21 @@ function navigate(page, el) {
     {
       dashboard: 'Dashboard', events: 'Events', zones: 'Zones', tickets: 'Tickets',
       users: 'Users', verifications: 'Verifications', sponsors: 'Sponsors', scanlogs: 'Scan Logs',
-      settings: 'Settings'
+      logs: 'Activity Logs', scanners: 'Scanners', settings: 'Settings'
     }[page];
 
   const loaders = {
-    events: loadEvents, zones: loadZones, tickets: loadTickets,
-    users: loadUsers, verifications: loadVerifications,
-    sponsors: loadSponsors, scanlogs: loadScanLogs,
-    dashboard: loadDashboard, settings: loadSettings
+    events: loadEvents,
+    zones: async () => { await ensureEventsLoaded(); loadZones(); },
+    tickets: async () => { await ensureEventsLoaded(); loadTickets(); },
+    sponsors: async () => { await ensureEventsLoaded(); loadSponsors(); },
+    scanlogs: async () => { await ensureEventsLoaded(); loadScanLogs(); },
+    users: loadUsers,
+    verifications: loadVerifications,
+    logs: () => switchLogTab(currentLogTab),
+    scanners: loadScanners,
+    dashboard: loadDashboard,
+    settings: loadSettings
   };
   if (loaders[page]) loaders[page]();
 }
@@ -74,7 +89,7 @@ function navigate(page, el) {
 async function loadDashboard() {
   try {
     const [events, adminStats] = await Promise.allSettled([
-      apiFetch('/events'),
+      apiFetch('/events/all-admin'),
       apiFetch('/admin/stats'),
     ]);
 
@@ -125,7 +140,7 @@ async function loadEvents() {
   const tb = document.getElementById('eventsTable');
   tb.innerHTML = '<tr><td colspan="6" class="loading">Loading...</td></tr>';
   try {
-    const events = await apiFetch('/events');
+    const events = await apiFetch('/events/all-admin');
     allEvents = events;
     populateEventDropdowns(events);
     if (!events.length) {
@@ -367,7 +382,10 @@ async function loadTickets() {
         <td>${t.category}</td>
         <td>${badge(t.status)}</td>
         <td>${t.type === 'season' ? badge(t.verificationStatus || 'pending') : '—'}</td>
-        <td>₹${t.totalAmount || 0}</td>
+        <td>
+          <strong>₹${t.totalAmount || 0}</strong>
+          ${t.basePrice || t.gstAmount ? `<br><small style="color:var(--muted);font-size:10px;display:block;margin-top:2px">Base: ₹${t.basePrice || 0} | GST: ₹${t.gstAmount || 0}</small>` : ''}
+        </td>
         <td>
           ${t.type === 'season' && t.verificationStatus !== 'approved'
         ? `<button class="btn btn-sm btn-success" onclick="verifyTicketAction('${t._id}')">Verify</button>`
@@ -389,32 +407,12 @@ async function verifyTicketAction(ticketId) {
 // ── Users ─────────────────────────────────────────────────────────
 async function loadUsers() {
   const tb = document.getElementById('usersTable');
-  tb.innerHTML = '<tr><td colspan="6" class="loading">Loading...</td></tr>';
+  tb.innerHTML = '<tr><td colspan="7" class="loading">Loading...</td></tr>';
   try {
     const users = await apiFetch('/admin/users');
     allUsers = users;
-    if (!users.length) { tb.innerHTML = '<tr><td colspan="6" class="loading">No users yet</td></tr>'; return; }
-    tb.innerHTML = users.map(u => `
-      <tr>
-        <td>${u.phoneNumber}</td>
-        <td>${u.name || '—'}</td>
-        <td>${u.email || '—'}</td>
-        <td>${badge(u.role)}</td>
-        <td>${u.isVerified ? '<span class="badge badge-success">Yes</span>' : '<span class="badge badge-muted">No</span>'}</td>
-        <td>${fmt(u.createdAt)}</td>
-        <td>
-          <div class="table-actions">
-            <select class="select-input" style="padding:4px 8px;font-size:12px" onchange="updateUserRole('${u._id}',this.value)">
-              <option value="">Change Role</option>
-              <option value="user">User</option>
-              <option value="scanner">Scanner</option>
-              <option value="zone_manager">Zone Manager</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
-        </td>
-      </tr>`).join('');
-  } catch { tb.innerHTML = '<tr><td colspan="6" class="loading">Failed to load</td></tr>'; }
+    filterUsers();
+  } catch { tb.innerHTML = '<tr><td colspan="7" class="loading">Failed to load</td></tr>'; }
 }
 
 async function updateUserRole(id, role) {
@@ -596,6 +594,28 @@ function zoomImage(src) {
   window.open(src, '_blank');
 }
 
+let eventsLoadedPromise = null;
+async function ensureEventsLoaded() {
+  if (allEvents && allEvents.length) {
+    populateEventDropdowns(allEvents);
+    return allEvents;
+  }
+  if (!eventsLoadedPromise) {
+    eventsLoadedPromise = apiFetch('/events/all-admin')
+      .then(events => {
+        allEvents = events;
+        populateEventDropdowns(events);
+        eventsLoadedPromise = null;
+        return events;
+      })
+      .catch(err => {
+        eventsLoadedPromise = null;
+        throw err;
+      });
+  }
+  return eventsLoadedPromise;
+}
+
 // ── Dropdown Helper ──────────────────────────────────────────────
 function populateEventDropdowns(events) {
   const dropdowns = ['zoneEventFilter', 'zoneEventId', 'sponsorEventId', 'ticketEventFilter', 'scanEventFilter'];
@@ -647,13 +667,15 @@ let allUsers = [];
 let allTickets = [];
 
 function filterUsers() {
-  const q = document.getElementById('userSearch').value.toLowerCase();
-  const tb = document.getElementById('usersTable');
-  const filtered = allUsers.filter(u =>
-    u.phoneNumber.toLowerCase().includes(q) ||
-    (u.name && u.name.toLowerCase().includes(q)) ||
-    (u.email && u.email.toLowerCase().includes(q))
-  );
+  const q = document.getElementById('userSearch').value.toLowerCase().trim();
+  const role = document.getElementById('userRoleFilter').value;
+  const filtered = allUsers.filter(u => {
+    const matchesQuery = u.phoneNumber.toLowerCase().includes(q) ||
+      (u.name && u.name.toLowerCase().includes(q)) ||
+      (u.email && u.email.toLowerCase().includes(q));
+    const matchesRole = !role || u.role === role;
+    return matchesQuery && matchesRole;
+  });
   renderUserTable(filtered);
 }
 
@@ -669,6 +691,10 @@ function filterTickets() {
 
 function renderUserTable(users) {
   const tb = document.getElementById('usersTable');
+  if (!users.length) {
+    tb.innerHTML = '<tr><td colspan="7" class="loading">No users found</td></tr>';
+    return;
+  }
   tb.innerHTML = users.map(u => `
     <tr>
       <td>${u.phoneNumber}</td>
@@ -679,10 +705,12 @@ function renderUserTable(users) {
       <td>${fmt(u.createdAt)}</td>
       <td>
         <div class="table-actions">
+          <button class="btn btn-sm btn-primary" onclick="openUserDetail('${u._id}')" style="padding:4px 8px;font-size:12px">👁️ Details</button>
           <select class="select-input" style="padding:4px 8px;font-size:12px" onchange="updateUserRole('${u._id}',this.value)">
             <option value="">Change Role</option>
             <option value="user">User</option>
             <option value="scanner">Scanner</option>
+            <option value="zone_manager">Zone Manager</option>
             <option value="admin">Admin</option>
           </select>
         </div>
@@ -701,7 +729,10 @@ function renderTicketTable(tickets) {
       <td>${t.category}</td>
       <td>${badge(t.status)}</td>
       <td>${t.type === 'season' ? badge(t.verificationStatus || 'pending') : '—'}</td>
-      <td>₹${t.totalAmount || 0}</td>
+      <td>
+        <strong>₹${t.totalAmount || 0}</strong>
+        ${t.basePrice || t.gstAmount ? `<br><small style="color:var(--muted);font-size:10px;display:block;margin-top:2px">Base: ₹${t.basePrice || 0} | GST: ₹${t.gstAmount || 0}</small>` : ''}
+      </td>
       <td>
         ${t.type === 'season' && t.verificationStatus !== 'approved'
       ? `<button class="btn btn-sm btn-success" onclick="verifyTicketAction('${t._id}')">Verify</button>`
@@ -753,8 +784,893 @@ document.getElementById('eventImageFile').addEventListener('change', async (e) =
   }
 });
 
+// ── Admin Login/Logout ─────────────────────────────────────────────
+function showPhoneStep() {
+  document.getElementById('loginStepPhone').style.display = 'block';
+  document.getElementById('loginStepOtp').style.display = 'none';
+}
+
+async function sendAdminOtp() {
+  const phone = document.getElementById('loginPhone').value.trim();
+  if (!phone || phone.length < 10) {
+    showToast('⚠️ Enter a valid 10-digit number', 'error');
+    return;
+  }
+  try {
+    showToast('📤 Requesting OTP...', 'info');
+    const res = await fetch(API + '/auth/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: '+91' + phone })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to send OTP');
+    }
+    document.getElementById('adminOtpPhone').textContent = '+91' + phone;
+    document.getElementById('loginStepPhone').style.display = 'none';
+    document.getElementById('loginStepOtp').style.display = 'block';
+    showToast('📱 OTP sent to ' + phone);
+  } catch (e) {
+    showToast('❌ ' + e.message, 'error');
+  }
+}
+
+async function verifyAdminOtp() {
+  const phone = document.getElementById('loginPhone').value.trim();
+  const otp = document.getElementById('loginOtp').value.trim();
+  if (!otp || otp.length < 6) {
+    showToast('⚠️ Enter a valid 6-digit OTP', 'error');
+    return;
+  }
+  try {
+    showToast('🔑 Verifying OTP...', 'info');
+    const res = await fetch(API + '/auth/verify-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: '+91' + phone, otp })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'OTP verification failed');
+    }
+    const data = await res.json();
+    if (data.user?.role !== 'admin') {
+      showToast('❌ Access Denied: Administrator role required', 'error');
+      return;
+    }
+    localStorage.setItem('admin_token', data.access_token);
+    localStorage.setItem('admin_user', JSON.stringify(data.user));
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('adminNameDisplay').textContent = data.user.name || 'Admin';
+    showToast('🔓 Access Granted. Welcome!');
+    loadDashboard();
+  } catch (e) {
+    showToast('❌ ' + e.message, 'error');
+  }
+}
+
+// ── Analytics & Activity Logs State & Logic ──────────────────────
+let currentLogTab = 'scan';
+let currentUserDetailData = null;
+let currentScannerDetailData = null;
+
+function closeDetailPanel(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+function switchLogTab(tab) {
+  currentLogTab = tab;
+  document.querySelectorAll('#logTabBar .tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.getElementById(`logTab-${tab}`).classList.add('active');
+  
+  // Update table headers based on tab
+  const head = document.getElementById('logsTableHead').querySelector('tr');
+  if (tab === 'scan') {
+    head.innerHTML = `
+      <th>Time</th>
+      <th>Ticket Owner</th>
+      <th>Scanner</th>
+      <th>Status</th>
+      <th>Zone</th>
+      <th>Event</th>
+      <th>Message</th>
+    `;
+  } else if (tab === 'transfer') {
+    head.innerHTML = `
+      <th>Time</th>
+      <th>Ticket ID</th>
+      <th>From User</th>
+      <th>To User</th>
+      <th>Category</th>
+      <th>Type</th>
+    `;
+  } else if (tab === 'admin') {
+    head.innerHTML = `
+      <th>Time</th>
+      <th>Admin</th>
+      <th>Action</th>
+      <th>Target Resource</th>
+      <th>Changes</th>
+    `;
+  } else if (tab === 'auth') {
+    head.innerHTML = `
+      <th>Time</th>
+      <th>User</th>
+      <th>Role</th>
+      <th>Event</th>
+      <th>IP Address</th>
+      <th>Device</th>
+    `;
+  }
+  
+  loadCurrentLogTab();
+}
+
+function resolveUserIdFilter(queryText) {
+  if (!queryText) return '';
+  const q = queryText.toLowerCase().trim();
+  const found = allUsers.find(u =>
+    u._id.toLowerCase() === q ||
+    u.phoneNumber.toLowerCase().includes(q) ||
+    (u.name && u.name.toLowerCase().includes(q))
+  );
+  return found ? found._id : queryText;
+}
+
+async function loadCurrentLogTab() {
+  const tb = document.getElementById('logsTableBody');
+  if (!tb) return;
+  tb.innerHTML = '<tr><td colspan="6" class="loading">Loading logs...</td></tr>';
+  
+  const userFilterText = document.getElementById('logUserFilter').value;
+  const role = document.getElementById('logRoleFilter').value;
+  const dateFrom = document.getElementById('logDateFrom').value;
+  const dateTo = document.getElementById('logDateTo').value;
+  
+  let userId = '';
+  if (userFilterText) {
+    userId = resolveUserIdFilter(userFilterText);
+  }
+  
+  const params = new URLSearchParams();
+  params.append('type', currentLogTab);
+  if (userId) params.append('userId', userId);
+  if (role) params.append('role', role);
+  if (dateFrom) params.append('dateFrom', dateFrom);
+  if (dateTo) params.append('dateTo', dateTo);
+  
+  try {
+    const logs = await apiFetch(`/admin/logs?${params.toString()}`);
+    if (!logs.length) {
+      tb.innerHTML = `<tr><td colspan="7" class="loading">No logs found matching filters</td></tr>`;
+      return;
+    }
+    
+    if (currentLogTab === 'scan') {
+      tb.innerHTML = logs.map(l => {
+        const ownerName = l.ticketId?.userId?.name || '—';
+        const ownerPhone = l.ticketId?.userId?.phoneNumber || '—';
+        
+        let scannerName = '—';
+        let scannerPhone = '—';
+        if (l.scannerId) {
+          if (typeof l.scannerId === 'object') {
+            scannerName = l.scannerId.name || 'Scanner';
+            scannerPhone = l.scannerId.phoneNumber || '—';
+          } else if (typeof l.scannerId === 'string') {
+            const foundUser = allUsers.find(u => u._id === l.scannerId);
+            if (foundUser) {
+              scannerName = foundUser.name || 'Scanner';
+              scannerPhone = foundUser.phoneNumber || '—';
+            } else {
+              scannerName = 'Scanner (' + l.scannerId.slice(-4) + ')';
+            }
+          }
+        }
+        
+        return `
+          <tr>
+            <td>${fmt(l.createdAt)}</td>
+            <td>
+              <strong>${ownerName}</strong><br>
+              <small style="color:var(--muted)">${ownerPhone}</small>
+            </td>
+            <td>
+              <strong>${scannerName}</strong><br>
+              <small style="color:var(--muted)">${scannerPhone}</small>
+            </td>
+            <td>${badge(l.status)}</td>
+            <td>${l.zoneId?.name || '—'}</td>
+            <td>${l.eventId?.name || '—'}</td>
+            <td style="color:var(--muted);font-size:12px">${l.message || '—'}</td>
+          </tr>
+        `;
+      }).join('');
+    } else if (currentLogTab === 'transfer') {
+      tb.innerHTML = logs.map(l => `
+        <tr>
+          <td>${fmt(l.createdAt)}</td>
+          <td style="font-family:monospace;font-size:11px">${String(l.ticketId?._id || l.ticketId).slice(-8)}</td>
+          <td>
+            <strong>${l.fromUserId?.name || '—'}</strong><br>
+            <small style="color:var(--muted)">${l.fromUserId?.phoneNumber || '—'}</small>
+          </td>
+          <td>
+            <strong>${l.toUserId?.name || '—'}</strong><br>
+            <small style="color:var(--muted)">${l.toUserId?.phoneNumber || '—'}</small>
+          </td>
+          <td>${l.ticketId?.category || '—'}</td>
+          <td>${badge(l.ticketId?.type || '—')}</td>
+        </tr>
+      `).join('');
+    } else if (currentLogTab === 'admin') {
+      tb.innerHTML = logs.map(l => `
+        <tr>
+          <td>${fmt(l.createdAt)}</td>
+          <td>
+            <strong>${l.adminId?.name || 'Admin'}</strong><br>
+            <small style="color:var(--muted)">${l.adminId?.phoneNumber || '—'}</small>
+          </td>
+          <td><span class="badge badge-log-admin">${l.action}</span></td>
+          <td>
+            <span style="color:var(--muted);font-size:11px">${l.targetType || '—'}</span><br>
+            <strong>${l.targetName || l.targetId || '—'}</strong>
+          </td>
+          <td>${formatChanges(l.changes)}</td>
+        </tr>
+      `).join('');
+    } else if (currentLogTab === 'auth') {
+      tb.innerHTML = logs.map(l => `
+        <tr>
+          <td>${fmt(l.createdAt)}</td>
+          <td>
+            <strong>${l.userId?.name || '—'}</strong><br>
+            <small style="color:var(--muted)">${l.userId?.phoneNumber || l.phone || '—'}</small>
+          </td>
+          <td>${badge(l.role || l.userId?.role)}</td>
+          <td><span class="badge ${getAuthEventBadgeClass(l.event)}">${l.event}</span></td>
+          <td>${l.ipAddress || '—'}</td>
+          <td style="font-size:11px;color:var(--muted)">${l.deviceId || '—'}</td>
+        </tr>
+      `).join('');
+    }
+  } catch (e) {
+    tb.innerHTML = `<tr><td colspan="6" class="loading" style="color:var(--error)">Failed to load logs: ${e.message}</td></tr>`;
+  }
+}
+
+function clearLogFilters() {
+  document.getElementById('logUserFilter').value = '';
+  document.getElementById('logRoleFilter').value = '';
+  document.getElementById('logDateFrom').value = '';
+  document.getElementById('logDateTo').value = '';
+  loadCurrentLogTab();
+}
+
+function formatChanges(changes) {
+  if (!changes) return '—';
+  try {
+    let html = '<div style="font-size:11px; max-width: 300px; overflow-x: auto;">';
+    if (changes.before && changes.after) {
+      for (const k of Object.keys(changes.after)) {
+        const beforeVal = typeof changes.before[k] === 'object' ? JSON.stringify(changes.before[k]) : changes.before[k];
+        const afterVal = typeof changes.after[k] === 'object' ? JSON.stringify(changes.after[k]) : changes.after[k];
+        html += `<div><strong>${k}</strong>: <span style="color:var(--muted);text-decoration:line-through">${beforeVal !== undefined ? beforeVal : 'none'}</span> ➔ <span style="color:var(--green)">${afterVal}</span></div>`;
+      }
+    } else {
+      html += `<pre style="margin:0">${JSON.stringify(changes, null, 2)}</pre>`;
+    }
+    html += '</div>';
+    return html;
+  } catch (e) {
+    return '—';
+  }
+}
+
+function getAuthEventBadgeClass(event) {
+  const map = {
+    login_success: 'badge-login',
+    logout: 'badge-logout',
+    otp_requested: 'badge-otp-req',
+    otp_failed: 'badge-otp-fail'
+  };
+  return map[event] || 'badge-muted';
+}
+
+// ── Scanners page ────────────────────────────────────────────────
+async function loadScanners() {
+  const grid = document.getElementById('scannerGrid');
+  if (!grid) return;
+  grid.innerHTML = '<div class="loading">Loading scanners...</div>';
+  try {
+    const scanners = await apiFetch('/admin/scanners');
+    if (!scanners.length) {
+      grid.innerHTML = '<div class="loading">No scanners found</div>';
+      return;
+    }
+    
+    const cardsHtml = await Promise.all(scanners.map(async s => {
+      let stats = { total: 0, success: 0, duplicate: 0, fraud: 0, invalid_sig: 0, time_invalid: 0 };
+      try {
+        const analytics = await apiFetch(`/admin/analytics/scanner/${s._id}`);
+        stats = analytics.summary;
+      } catch (err) {
+        console.error('Error fetching analytics for scanner ' + s._id, err);
+      }
+      
+      const successRate = stats.total > 0 ? Math.round((stats.success / stats.total) * 100) : 0;
+      
+      return `
+        <div class="scanner-card" onclick="openScannerDetail('${s._id}')">
+          <div class="scanner-card-head">
+            <div class="scanner-card-avatar">📲</div>
+            <div>
+              <div style="font-weight:700;font-size:15px">${s.name || 'Scanner User'}</div>
+              <div style="color:var(--muted);font-size:12px">${s.phoneNumber}</div>
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
+            Role: ${badge(s.role)} <br>
+            Joined: ${fmt(s.createdAt)}
+          </div>
+          <div class="scanner-card-stats">
+            <div class="scanner-stat">
+              <strong>${stats.total}</strong>
+              Total Scans
+            </div>
+            <div class="scanner-stat">
+              <strong>${stats.success}</strong>
+              Success
+            </div>
+            <div class="scanner-stat">
+              <strong>${successRate}%</strong>
+              Success Rate
+            </div>
+          </div>
+        </div>
+      `;
+    }));
+    
+    grid.innerHTML = cardsHtml.join('');
+  } catch (e) {
+    grid.innerHTML = '<div class="loading">Failed to load scanners</div>';
+  }
+}
+
+// ── User Detail Slide-In Panel ───────────────────────────────────
+// ── User Detail Slide-In Panel ───────────────────────────────────
+async function openUserDetail(userId) {
+  const user = allUsers.find(u => u._id === userId);
+  const overlay = document.getElementById('userDetailOverlay');
+  const nameEl = document.getElementById('userDetailName');
+  const metaEl = document.getElementById('userDetailMeta');
+  const bodyEl = document.getElementById('userDetailBody');
+  
+  if (user) {
+    nameEl.textContent = user.name || 'User Detail';
+    metaEl.textContent = `${user.phoneNumber} · Role: ${user.role.toUpperCase()}`;
+  }
+  
+  bodyEl.innerHTML = '<div class="loading">Loading analytics & history...</div>';
+  overlay.classList.add('open');
+  
+  try {
+    if (user && (user.role === 'scanner' || user.role === 'zone_manager')) {
+      const data = await apiFetch(`/admin/analytics/scanner/${userId}`);
+      currentUserDetailData = { role: user.role, user, ...data };
+      
+      const sum = data.summary;
+      const successRate = sum.total > 0 ? Math.round((sum.success / sum.total) * 100) : 0;
+      
+      bodyEl.innerHTML = `
+        <div class="profile-info-row">
+          <div class="profile-avatar">📲</div>
+          <div class="profile-details">
+            <div class="profile-name">${user?.name || 'Scanner User'}</div>
+            <div class="profile-sub">
+              <span>📞 ${user?.phoneNumber}</span>
+              <span>📧 ${user?.email || 'No email'}</span>
+              <span>📅 Joined: ${fmt(user?.createdAt)}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="analytics-grid">
+          <div class="analytics-card pink-glow">
+            <div class="ac-icon">📡</div>
+            <div class="ac-value">${sum.total}</div>
+            <div class="ac-label">Total Scans</div>
+          </div>
+          <div class="analytics-card green-glow">
+            <div class="ac-icon">✅</div>
+            <div class="ac-value">${sum.success}</div>
+            <div class="ac-label">Success Rate (${successRate}%)</div>
+          </div>
+          <div class="analytics-card orange-glow">
+            <div class="ac-icon">⚠️</div>
+            <div class="ac-value">${sum.duplicate}</div>
+            <div class="ac-label">Duplicates</div>
+          </div>
+          <div class="analytics-card red-glow">
+            <div class="ac-icon">🚫</div>
+            <div class="ac-value">${sum.fraud + sum.invalid_sig + sum.time_invalid}</div>
+            <div class="ac-label">Fraud/Invalid</div>
+          </div>
+        </div>
+        
+        <div class="tab-bar">
+          <button class="tab-btn active" id="udTabBtn-scans" onclick="switchUserDetailTab('scans')">📡 Recent Scans (${data.scanLogs.length})</button>
+          <button class="tab-btn" id="udTabBtn-auth" onclick="switchUserDetailTab('auth')">🔑 Auth Logs (${data.authLogs.length})</button>
+        </div>
+        
+        <div id="udTabContent" style="margin-top: 15px;">
+          ${renderScannerDetailScansHtml(data.scanLogs)}
+        </div>
+      `;
+    } else if (user && user.role === 'admin') {
+      const [adminLogs, authLogs] = await Promise.all([
+        apiFetch(`/admin/logs?type=admin&userId=${userId}`),
+        apiFetch(`/admin/logs?type=auth&userId=${userId}`),
+      ]);
+      
+      currentUserDetailData = { role: 'admin', user, adminLogs, authLogs };
+      
+      bodyEl.innerHTML = `
+        <div class="profile-info-row">
+          <div class="profile-avatar">🛡️</div>
+          <div class="profile-details">
+            <div class="profile-name">${user?.name || 'Administrator'}</div>
+            <div class="profile-sub">
+              <span>📞 ${user?.phoneNumber}</span>
+              <span>📧 ${user?.email || 'No email'}</span>
+              <span>📅 Joined: ${fmt(user?.createdAt)}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="analytics-grid two-col-grid">
+          <div class="analytics-card pink-glow">
+            <div class="ac-icon">🛠️</div>
+            <div class="ac-value">${adminLogs.length}</div>
+            <div class="ac-label">Admin Actions</div>
+          </div>
+          <div class="analytics-card blue-glow">
+            <div class="ac-icon">🔑</div>
+            <div class="ac-value">${authLogs.length}</div>
+            <div class="ac-label">Logins/Auth Logs</div>
+          </div>
+        </div>
+        
+        <div class="tab-bar">
+          <button class="tab-btn active" id="udTabBtn-actions" onclick="switchUserDetailTab('actions')">🛡️ Admin Actions (${adminLogs.length})</button>
+          <button class="tab-btn" id="udTabBtn-auth" onclick="switchUserDetailTab('auth')">🔑 Auth Logs (${authLogs.length})</button>
+        </div>
+        
+        <div id="udTabContent" style="margin-top: 15px;">
+          ${renderAdminDetailActionsHtml(adminLogs)}
+        </div>
+      `;
+    } else {
+      const data = await apiFetch(`/admin/analytics/user/${userId}`);
+      currentUserDetailData = { role: 'user', user, ...data };
+      
+      const sum = data.summary;
+      
+      bodyEl.innerHTML = `
+        <div class="profile-info-row">
+          <div class="profile-avatar">👤</div>
+          <div class="profile-details">
+            <div class="profile-name">${user?.name || 'Guest User'}</div>
+            <div class="profile-sub">
+              <span>📞 ${user?.phoneNumber}</span>
+              <span>📧 ${user?.email || 'No email'}</span>
+              <span>📅 Joined: ${fmt(user?.createdAt)}</span>
+              <span>Verified: ${user?.isVerified ? '<span class="badge badge-success">Yes</span>' : '<span class="badge badge-muted">No</span>'}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="analytics-grid">
+          <div class="analytics-card pink-glow">
+            <div class="ac-icon">🎟️</div>
+            <div class="ac-value">${sum.totalPurchased}</div>
+            <div class="ac-label">Purchased</div>
+          </div>
+          <div class="analytics-card purple-glow">
+            <div class="ac-icon">💸</div>
+            <div class="ac-value">₹${sum.totalSpent}</div>
+            <div class="ac-label">Total Spent</div>
+          </div>
+          <div class="analytics-card orange-glow">
+            <div class="ac-icon">📤</div>
+            <div class="ac-value">${sum.totalTransferredOut}</div>
+            <div class="ac-label">Transferred Out</div>
+          </div>
+          <div class="analytics-card green-glow">
+            <div class="ac-icon">📥</div>
+            <div class="ac-value">${sum.totalTransferredIn}</div>
+            <div class="ac-label">Transferred In</div>
+          </div>
+        </div>
+        
+        <div class="tab-bar">
+          <button class="tab-btn active" id="udTabBtn-tickets" onclick="switchUserDetailTab('tickets')">🎟️ Current Tickets (${data.currentTickets.length})</button>
+          <button class="tab-btn" id="udTabBtn-transfers" onclick="switchUserDetailTab('transfers')">🔄 Transfers</button>
+          <button class="tab-btn" id="udTabBtn-auth" onclick="switchUserDetailTab('auth')">🔑 Auth Logs (${data.authLogs.length})</button>
+        </div>
+        
+        <div id="udTabContent" style="margin-top: 15px;">
+          ${renderUserDetailTicketsHtml(data.currentTickets)}
+        </div>
+      `;
+    }
+  } catch (e) {
+    bodyEl.innerHTML = `<div class="loading" style="color:var(--error)">Error loading user details: ${e.message}</div>`;
+  }
+}
+
+function switchUserDetailTab(tab) {
+  if (!currentUserDetailData) return;
+  
+  document.querySelectorAll('#userDetailBody .tab-btn').forEach(btn => btn.classList.remove('active'));
+  const activeBtn = document.getElementById(`udTabBtn-${tab}`);
+  if (activeBtn) activeBtn.classList.add('active');
+  
+  const contentEl = document.getElementById('udTabContent');
+  if (!contentEl) return;
+  
+  if (tab === 'tickets') {
+    contentEl.innerHTML = renderUserDetailTicketsHtml(currentUserDetailData.currentTickets);
+  } else if (tab === 'transfers') {
+    contentEl.innerHTML = renderUserDetailTransfersHtml(currentUserDetailData.transfersOut, currentUserDetailData.transfersIn);
+  } else if (tab === 'auth') {
+    contentEl.innerHTML = renderUserDetailAuthHtml(currentUserDetailData.authLogs);
+  } else if (tab === 'scans') {
+    contentEl.innerHTML = renderScannerDetailScansHtml(currentUserDetailData.scanLogs);
+  } else if (tab === 'actions') {
+    contentEl.innerHTML = renderAdminDetailActionsHtml(currentUserDetailData.adminLogs);
+  }
+}
+
+function renderUserDetailTicketsHtml(tickets) {
+  if (!tickets.length) return '<div class="loading">No tickets held currently</div>';
+  return `
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Ticket ID</th>
+            <th>Event</th>
+            <th>Category</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Scanned?</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tickets.map(t => `
+            <tr>
+              <td style="font-family:monospace;font-size:11px">${String(t._id).slice(-8)}</td>
+              <td>${t.eventId?.name || '—'}</td>
+              <td>${t.category}</td>
+              <td>${badge(t.type)}</td>
+              <td>${badge(t.status)}</td>
+              <td>${t.isScanned ? '<span class="badge badge-success">Yes</span>' : '<span class="badge badge-muted">No</span>'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderUserDetailTransfersHtml(outTransfers, inTransfers) {
+  if (!outTransfers.length && !inTransfers.length) return '<div class="loading">No transfers recorded</div>';
+  
+  let html = '';
+  if (outTransfers.length) {
+    html += `
+      <h4 style="margin: 15px 0 10px 0; font-size: 13px; font-weight: 700; color: #FF8C5A">📤 Transferred Out</h4>
+      <div class="table-wrap" style="margin-bottom: 20px;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Ticket ID</th>
+              <th>Sent To</th>
+              <th>Category</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${outTransfers.map(tr => `
+              <tr>
+                <td>${fmt(tr.createdAt)}</td>
+                <td style="font-family:monospace;font-size:11px">${String(tr.ticketId?._id || tr.ticketId).slice(-8)}</td>
+                <td>${tr.toUserId?.name || '—'} (${tr.toUserId?.phoneNumber || '—'})</td>
+                <td>${tr.ticketId?.category || '—'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+  
+  if (inTransfers.length) {
+    html += `
+      <h4 style="margin: 15px 0 10px 0; font-size: 13px; font-weight: 700; color: var(--green)">📥 Received</h4>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Ticket ID</th>
+              <th>Received From</th>
+              <th>Category</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${inTransfers.map(tr => `
+              <tr>
+                <td>${fmt(tr.createdAt)}</td>
+                <td style="font-family:monospace;font-size:11px">${String(tr.ticketId?._id || tr.ticketId).slice(-8)}</td>
+                <td>${tr.fromUserId?.name || '—'} (${tr.fromUserId?.phoneNumber || '—'})</td>
+                <td>${tr.ticketId?.category || '—'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+  
+  return html;
+}
+
+function renderUserDetailAuthHtml(authLogs) {
+  if (!authLogs.length) return '<div class="loading">No auth events recorded</div>';
+  return `
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Event</th>
+            <th>IP Address</th>
+            <th>Device ID</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${authLogs.map(log => `
+            <tr>
+              <td>${fmt(log.createdAt)}</td>
+              <td><span class="badge ${getAuthEventBadgeClass(log.event)}">${log.event}</span></td>
+              <td>${log.ipAddress || '—'}</td>
+              <td style="font-size:11px;color:var(--muted)">${log.deviceId || '—'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ── Scanner Detail Slide-In Panel ────────────────────────────────
+async function openScannerDetail(scannerId) {
+  const overlay = document.getElementById('scannerDetailOverlay');
+  const nameEl = document.getElementById('scannerDetailName');
+  const metaEl = document.getElementById('scannerDetailMeta');
+  const bodyEl = document.getElementById('scannerDetailBody');
+  
+  nameEl.textContent = 'Scanner Detail';
+  metaEl.textContent = 'Loading...';
+  bodyEl.innerHTML = '<div class="loading">Loading analytics & history...</div>';
+  overlay.classList.add('open');
+  
+  try {
+    const data = await apiFetch(`/admin/analytics/scanner/${scannerId}`);
+    currentScannerDetailData = data;
+    
+    const scannerUser = allUsers.find(u => u._id === scannerId) || (data.scanLogs[0]?.scannerId);
+    
+    nameEl.textContent = scannerUser?.name || 'Scanner Detail';
+    metaEl.textContent = `${scannerUser?.phoneNumber || ''} · Role: ${scannerUser?.role?.toUpperCase() || 'SCANNER'}`;
+    
+    const sum = data.summary;
+    const successRate = sum.total > 0 ? Math.round((sum.success / sum.total) * 100) : 0;
+    
+    bodyEl.innerHTML = `
+      <div class="profile-info-row">
+        <div class="profile-avatar">📲</div>
+        <div class="profile-details">
+          <div class="profile-name">${scannerUser?.name || 'Scanner User'}</div>
+          <div class="profile-sub">
+            <span>📞 ${scannerUser?.phoneNumber || '—'}</span>
+            <span>📧 ${scannerUser?.email || 'No email'}</span>
+            <span>📅 Joined: ${fmt(scannerUser?.createdAt)}</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="analytics-grid">
+        <div class="analytics-card pink-glow">
+          <div class="ac-icon">📡</div>
+          <div class="ac-value">${sum.total}</div>
+          <div class="ac-label">Total Scans</div>
+        </div>
+        <div class="analytics-card green-glow">
+          <div class="ac-icon">✅</div>
+          <div class="ac-value">${sum.success}</div>
+          <div class="ac-label">Success Rate (${successRate}%)</div>
+        </div>
+        <div class="analytics-card orange-glow">
+          <div class="ac-icon">⚠️</div>
+          <div class="ac-value">${sum.duplicate}</div>
+          <div class="ac-label">Duplicates</div>
+        </div>
+        <div class="analytics-card red-glow">
+          <div class="ac-icon">🚫</div>
+          <div class="ac-value">${sum.fraud + sum.invalid_sig + sum.time_invalid}</div>
+          <div class="ac-label">Fraud/Invalid</div>
+        </div>
+      </div>
+      
+      <div class="tab-bar">
+        <button class="tab-btn active" id="sdTabBtn-scans" onclick="switchScannerDetailTab('scans')">📡 Recent Scans (${data.scanLogs.length})</button>
+        <button class="tab-btn" id="sdTabBtn-auth" onclick="switchScannerDetailTab('auth')">🔑 Auth Logs (${data.authLogs.length})</button>
+      </div>
+      
+      <div id="sdTabContent" style="margin-top: 15px;">
+        ${renderScannerDetailScansHtml(data.scanLogs)}
+      </div>
+    `;
+    
+  } catch (e) {
+    bodyEl.innerHTML = `<div class="loading" style="color:var(--error)">Error loading scanner details: ${e.message}</div>`;
+  }
+}
+
+function switchScannerDetailTab(tab) {
+  if (!currentScannerDetailData) return;
+  
+  document.querySelectorAll('#scannerDetailBody .tab-btn').forEach(btn => btn.classList.remove('active'));
+  const activeBtn = document.getElementById(`sdTabBtn-${tab}`);
+  if (activeBtn) activeBtn.classList.add('active');
+  
+  const contentEl = document.getElementById('sdTabContent');
+  if (!contentEl) return;
+  
+  if (tab === 'scans') {
+    contentEl.innerHTML = renderScannerDetailScansHtml(currentScannerDetailData.scanLogs);
+  } else if (tab === 'auth') {
+    contentEl.innerHTML = renderScannerDetailAuthHtml(currentScannerDetailData.authLogs);
+  }
+}
+
+function renderScannerDetailScansHtml(scanLogs) {
+  if (!scanLogs.length) return '<div class="loading">No scans recorded</div>';
+  return `
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Ticket ID</th>
+            <th>Owner</th>
+            <th>Event</th>
+            <th>Zone</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${scanLogs.map(log => {
+            const ownerName = log.ticketId?.userId?.name || '—';
+            const ownerPhone = log.ticketId?.userId?.phoneNumber || '—';
+            return `
+              <tr>
+                <td>${fmt(log.createdAt)}</td>
+                <td style="font-family:monospace;font-size:11px">${String(log.ticketId?._id || log.ticketId).slice(-8)}</td>
+                <td>
+                  <strong>${ownerName}</strong><br>
+                  <small style="color:var(--muted)">${ownerPhone}</small>
+                </td>
+                <td>${log.eventId?.name || '—'}</td>
+                <td>${log.zoneId?.name || '—'}</td>
+                <td>${badge(log.status)}</td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderScannerDetailAuthHtml(authLogs) {
+  if (!authLogs.length) return '<div class="loading">No auth events recorded</div>';
+  return `
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Event</th>
+            <th>IP Address</th>
+            <th>Device ID</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${authLogs.map(log => `
+            <tr>
+              <td>${fmt(log.createdAt)}</td>
+              <td><span class="badge ${getAuthEventBadgeClass(log.event)}">${log.event}</span></td>
+              <td>${log.ipAddress || '—'}</td>
+              <td style="font-size:11px;color:var(--muted)">${log.deviceId || '—'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderAdminDetailActionsHtml(adminLogs) {
+  if (!adminLogs.length) return '<div class="loading">No admin actions recorded</div>';
+  return `
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Action</th>
+            <th>Target Resource</th>
+            <th>Changes</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${adminLogs.map(l => `
+            <tr>
+              <td>${fmt(l.createdAt)}</td>
+              <td><span class="badge badge-log-admin">${l.action}</span></td>
+              <td>
+                <span style="color:var(--muted);font-size:11px">${l.targetType || '—'}</span><br>
+                <strong>${l.targetName || l.targetId || '—'}</strong>
+              </td>
+              <td>${formatChanges(l.changes)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function adminLogout() {
+  localStorage.removeItem('admin_token');
+  localStorage.removeItem('admin_user');
+  document.getElementById('loginOverlay').style.display = 'flex';
+  document.getElementById('loginPhone').value = '';
+  document.getElementById('loginOtp').value = '';
+  showPhoneStep();
+  showToast('🚪 Logged out');
+}
+
 window.addEventListener('DOMContentLoaded', () => {
-  checkApiStatus();
-  setInterval(checkApiStatus, 15000);
-  loadDashboard();
+  const token = localStorage.getItem('admin_token');
+  const userStr = localStorage.getItem('admin_user');
+  if (token && userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      document.getElementById('adminNameDisplay').textContent = user.name || 'Admin';
+      document.getElementById('loginOverlay').style.display = 'none';
+      checkApiStatus();
+      setInterval(checkApiStatus, 15000);
+      loadDashboard();
+    } catch (e) {
+      adminLogout();
+    }
+  } else {
+    adminLogout();
+  }
 });

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/custom_snackbar.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -12,7 +13,8 @@ class RegisterScreen extends StatefulWidget {
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStateMixin {
+class _RegisterScreenState extends State<RegisterScreen>
+    with TickerProviderStateMixin {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -45,7 +47,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
       vsync: this,
       duration: const Duration(seconds: 8),
     )..repeat(reverse: true);
-    
+
     _blob2Controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 10),
@@ -54,12 +56,14 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
     _blob1Anim = Tween<Offset>(
       begin: const Offset(-80, -80),
       end: const Offset(-45, -45),
-    ).animate(CurvedAnimation(parent: _blob1Controller, curve: Curves.easeInOut));
+    ).animate(
+        CurvedAnimation(parent: _blob1Controller, curve: Curves.easeInOut));
 
     _blob2Anim = Tween<Offset>(
       begin: const Offset(80, -80),
       end: const Offset(45, -45),
-    ).animate(CurvedAnimation(parent: _blob2Controller, curve: Curves.easeInOut));
+    ).animate(
+        CurvedAnimation(parent: _blob2Controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -75,7 +79,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     final auth = context.read<AuthProvider>();
     final success = await auth.registerScanner(
       name: _nameController.text.trim(),
@@ -85,13 +89,10 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
     if (success && mounted) {
       Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(auth.errorMessage ?? 'Registration failed'),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
+      CustomSnackBar.show(
+        context,
+        message: auth.errorMessage ?? 'Registration failed',
+        type: SnackBarType.error,
       );
     }
   }
@@ -144,7 +145,8 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                               height: 42,
                               decoration: BoxDecoration(
                                 color: Colors.white.withOpacity(0.08),
-                                border: Border.all(color: Colors.white.withOpacity(0.1)),
+                                border: Border.all(
+                                    color: Colors.white.withOpacity(0.1)),
                                 shape: BoxShape.circle,
                               ),
                               child: const Center(
@@ -175,7 +177,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                         ),
                       ),
                       const SizedBox(height: 50),
-                      
+
                       // Name field with neon glow focus outline
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 220),
@@ -192,7 +194,8 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                               : [],
                         ),
                         child: GlassCard(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 6),
                           borderRadius: 16,
                           borderColor: _isNameFocused
                               ? AppColors.primary.withOpacity(0.7)
@@ -202,18 +205,23 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 200),
                                 child: _isNameFocused
-                                    ? const Icon(Icons.person, color: AppColors.primary, size: 24)
-                                    : const Icon(Icons.person_outline, color: AppColors.textMuted, size: 24),
+                                    ? const Icon(Icons.person,
+                                        color: AppColors.primary, size: 24)
+                                    : const Icon(Icons.person_outline,
+                                        color: AppColors.textMuted, size: 24),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: TextFormField(
                                   controller: _nameController,
                                   focusNode: _nameFocus,
-                                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 16),
+                                  style: const TextStyle(
+                                      color: AppColors.textPrimary,
+                                      fontSize: 16),
                                   decoration: const InputDecoration(
                                     hintText: 'Full Name',
-                                    hintStyle: TextStyle(color: AppColors.textMuted),
+                                    hintStyle:
+                                        TextStyle(color: AppColors.textMuted),
                                     border: InputBorder.none,
                                     filled: false,
                                   ),
@@ -229,9 +237,9 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                           ),
                         ),
                       ),
-                      
+
                       const SizedBox(height: 20),
-                      
+
                       // Email field with neon glow focus outline
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 220),
@@ -248,7 +256,8 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                               : [],
                         ),
                         child: GlassCard(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 6),
                           borderRadius: 16,
                           borderColor: _isEmailFocused
                               ? AppColors.primary.withOpacity(0.7)
@@ -258,8 +267,10 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 200),
                                 child: _isEmailFocused
-                                    ? const Icon(Icons.email, color: AppColors.primary, size: 24)
-                                    : const Icon(Icons.email_outlined, color: AppColors.textMuted, size: 24),
+                                    ? const Icon(Icons.email,
+                                        color: AppColors.primary, size: 24)
+                                    : const Icon(Icons.email_outlined,
+                                        color: AppColors.textMuted, size: 24),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -267,15 +278,20 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                                   controller: _emailController,
                                   focusNode: _emailFocus,
                                   keyboardType: TextInputType.emailAddress,
-                                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 16),
+                                  style: const TextStyle(
+                                      color: AppColors.textPrimary,
+                                      fontSize: 16),
                                   decoration: const InputDecoration(
                                     hintText: 'Email Address',
-                                    hintStyle: TextStyle(color: AppColors.textMuted),
+                                    hintStyle:
+                                        TextStyle(color: AppColors.textMuted),
                                     border: InputBorder.none,
                                     filled: false,
                                   ),
                                   validator: (val) {
-                                    if (val == null || val.trim().isEmpty || !val.contains('@')) {
+                                    if (val == null ||
+                                        val.trim().isEmpty ||
+                                        !val.contains('@')) {
                                       return 'Please enter a valid email';
                                     }
                                     return null;

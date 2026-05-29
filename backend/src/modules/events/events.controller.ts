@@ -1,13 +1,18 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseInterceptors, UploadedFile, BadRequestException, UseGuards, Request } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('events')
 export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'user', 'scanner', 'zone_manager')
   @Post('upload')
   @UseInterceptors(FileInterceptor('image', {
     storage: diskStorage({
@@ -17,6 +22,12 @@ export class EventsController {
         cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
       },
     }),
+    fileFilter: (req, file, cb) => {
+      if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
+        return cb(new BadRequestException('Only image files are allowed!'), false);
+      }
+      cb(null, true);
+    }
   }))
   uploadFile(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
@@ -26,9 +37,18 @@ export class EventsController {
   }
 
   // ── Events ──────────────────────────────────────────────────────────────
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @Post()
-  create(@Body() dto: any) {
-    return this.eventsService.createEvent(dto, dto.adminId);
+  create(@Body() dto: any, @Request() req) {
+    return this.eventsService.createEvent(dto, req.user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Get('all-admin')
+  findAllAdmin() {
+    return this.eventsService.getAllEventsForAdmin();
   }
 
   @Get()
@@ -41,20 +61,26 @@ export class EventsController {
     return this.eventsService.getEventById(id);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @Put(':id')
-  update(@Param('id') id: string, @Body() dto: any) {
-    return this.eventsService.updateEvent(id, dto);
+  update(@Param('id') id: string, @Body() dto: any, @Request() req) {
+    return this.eventsService.updateEvent(id, dto, req.user.sub);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.eventsService.deleteEvent(id);
+  remove(@Param('id') id: string, @Request() req) {
+    return this.eventsService.deleteEvent(id, req.user.sub);
   }
 
   // ── Zones ────────────────────────────────────────────────────────────────
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @Post('zones')
-  createZone(@Body() dto: any) {
-    return this.eventsService.createZone(dto, dto.adminId);
+  createZone(@Body() dto: any, @Request() req) {
+    return this.eventsService.createZone(dto, req.user.sub);
   }
 
   @Get(':id/zones')
@@ -62,8 +88,10 @@ export class EventsController {
     return this.eventsService.getZonesByEvent(id);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @Put('zones/:id')
-  updateZone(@Param('id') id: string, @Body() dto: any) {
-    return this.eventsService.updateZone(id, dto);
+  updateZone(@Param('id') id: string, @Body() dto: any, @Request() req) {
+    return this.eventsService.updateZone(id, dto, req.user.sub);
   }
 }

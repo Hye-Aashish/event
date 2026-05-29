@@ -41,15 +41,24 @@
       <a href="#" class="nav-item" data-page="scanlogs" onclick="navigate('scanlogs',this)">
         <span class="nav-icon">📡</span><span>Scan Logs</span>
       </a>
+      <a href="#" class="nav-item" data-page="logs" onclick="navigate('logs',this)">
+        <span class="nav-icon">📋</span><span>Activity Logs</span>
+      </a>
+      <a href="#" class="nav-item" data-page="scanners" onclick="navigate('scanners',this)">
+        <span class="nav-icon">📲</span><span>Scanners</span>
+      </a>
       <a href="#" class="nav-item" data-page="settings" onclick="navigate('settings',this)">
         <span class="nav-icon">⚙️</span><span>Settings</span>
       </a>
     </nav>
-    <div class="sidebar-footer">
-      <div class="admin-badge">
+    <div class="sidebar-footer" style="display: flex; flex-direction: column; gap: 12px; padding: 20px;">
+      <div class="admin-badge" style="margin: 0; width: 100%;">
         <span class="badge-dot"></span>
-        <span>Super Admin</span>
+        <span id="adminNameDisplay">Super Admin</span>
       </div>
+      <button class="btn btn-outline btn-sm" onclick="adminLogout()" style="width: 100%; justify-content: center; gap: 8px; border-color: rgba(255, 68, 68, 0.25); color: #FF4444; height: 36px; border-radius: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; background: transparent;">
+        <span>🚪</span><span>Logout</span>
+      </button>
     </div>
   </aside>
 
@@ -185,7 +194,16 @@
         <div class="glass-card">
           <div class="card-header">
             <h3>Registered Users</h3>
-            <input type="text" id="userSearch" placeholder="Search by Name/Phone..." class="select-input" onkeyup="filterUsers()" style="width: 250px;">
+            <div style="display:flex;gap:10px;align-items:center">
+              <select id="userRoleFilter" onchange="filterUsers()" class="select-input">
+                <option value="">All Roles</option>
+                <option value="user">User</option>
+                <option value="scanner">Scanner</option>
+                <option value="zone_manager">Zone Manager</option>
+                <option value="admin">Admin</option>
+              </select>
+              <input type="text" id="userSearch" placeholder="Search by Name/Phone..." class="select-input" onkeyup="filterUsers()" style="width: 250px;">
+            </div>
           </div>
           <div class="table-wrap">
             <table class="data-table">
@@ -247,6 +265,58 @@
         </div>
       </div>
 
+      <!-- Activity Logs Page -->
+      <div class="page" id="page-logs">
+        <div class="glass-card">
+          <div class="card-header">
+            <h3>Activity Logs</h3>
+            <button class="btn btn-sm" onclick="loadCurrentLogTab()">🔄 Refresh</button>
+          </div>
+          <!-- Tab Bar -->
+          <div class="tab-bar" id="logTabBar">
+            <button class="tab-btn active" id="logTab-scan"    onclick="switchLogTab('scan')"   >📡 Scan Logs</button>
+            <button class="tab-btn"        id="logTab-transfer" onclick="switchLogTab('transfer')">🔄 Transfers</button>
+            <button class="tab-btn"        id="logTab-admin"   onclick="switchLogTab('admin')"  >🛡️ Admin Actions</button>
+            <button class="tab-btn"        id="logTab-auth"    onclick="switchLogTab('auth')"   >🔑 Auth / Login</button>
+          </div>
+          <!-- Filters -->
+          <div class="filter-row">
+            <input type="text" id="logUserFilter" placeholder="Filter by User ID or Phone..." class="select-input" style="min-width:220px">
+            <select id="logRoleFilter" class="select-input">
+              <option value="">All Roles</option>
+              <option value="user">User</option>
+              <option value="scanner">Scanner</option>
+              <option value="admin">Admin</option>
+              <option value="zone_manager">Zone Manager</option>
+            </select>
+            <input type="date" id="logDateFrom" title="From date">
+            <input type="date" id="logDateTo" title="To date">
+            <button class="btn btn-sm" onclick="loadCurrentLogTab()">Apply</button>
+            <button class="btn btn-outline btn-sm" onclick="clearLogFilters()">Clear</button>
+          </div>
+          <!-- Tab Content -->
+          <div id="logsTabContent">
+            <div class="table-wrap">
+              <table class="data-table" id="logsTable">
+                <thead id="logsTableHead"><tr></tr></thead>
+                <tbody id="logsTableBody"><tr><td colspan="6" class="loading">Select a tab to view logs</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scanners Page -->
+      <div class="page" id="page-scanners">
+        <div class="card-header" style="margin-bottom:20px">
+          <h3 style="font-size:16px;font-weight:700">Scanner Users</h3>
+          <button class="btn btn-sm" onclick="loadScanners()">🔄 Refresh</button>
+        </div>
+        <div class="scanner-grid" id="scannerGrid">
+          <div class="loading">Loading...</div>
+        </div>
+      </div>
+
       <!-- Settings Page -->
       <div class="page" id="page-settings">
         <div class="glass-card" style="max-width: 600px;">
@@ -276,6 +346,38 @@
       </div>
     </div>
   </main>
+
+  <!-- ── User Detail Panel ── -->
+  <div class="detail-overlay" id="userDetailOverlay" onclick="closeDetailPanel('userDetailOverlay')">
+    <div class="detail-panel" onclick="event.stopPropagation()">
+      <div class="detail-panel-header">
+        <div>
+          <h2 id="userDetailName">User Detail</h2>
+          <div class="meta" id="userDetailMeta"></div>
+        </div>
+        <button class="modal-close" onclick="closeDetailPanel('userDetailOverlay')">✕</button>
+      </div>
+      <div class="detail-panel-body">
+        <div id="userDetailBody"><div class="loading">Loading...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Scanner Detail Panel ── -->
+  <div class="detail-overlay" id="scannerDetailOverlay" onclick="closeDetailPanel('scannerDetailOverlay')">
+    <div class="detail-panel" onclick="event.stopPropagation()">
+      <div class="detail-panel-header">
+        <div>
+          <h2 id="scannerDetailName">Scanner Detail</h2>
+          <div class="meta" id="scannerDetailMeta"></div>
+        </div>
+        <button class="modal-close" onclick="closeDetailPanel('scannerDetailOverlay')">✕</button>
+      </div>
+      <div class="detail-panel-body">
+        <div id="scannerDetailBody"><div class="loading">Loading...</div></div>
+      </div>
+    </div>
+  </div>
 
   <!-- ── MODALS ── -->
   <!-- Event Modal -->
@@ -459,7 +561,38 @@
     </div>
   </div>
 
-  <!-- Sponsor Modal -->
+  <!-- Admin Login Overlay -->
+  <div id="loginOverlay" class="modal-overlay open" style="backdrop-filter: blur(25px); background: rgba(11, 11, 15, 0.85); display: flex; align-items: center; justify-content: center; z-index: 9999; position: fixed; top: 0; left: 0; right: 0; bottom: 0;">
+    <div class="glass-card" style="width: 100%; max-width: 420px; padding: 40px; border-radius: 28px; text-align: center; border: 1px solid rgba(255,255,255,0.1); background: rgba(22, 22, 30, 0.7); box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+      <div style="font-size: 54px; margin-bottom: 16px;">🪔</div>
+      <h2 style="font-size: 26px; font-weight: 800; margin-bottom: 8px; color: #fff;">Admin Console</h2>
+      <p style="color: var(--muted); font-size: 14px; margin-bottom: 28px;">Verify your identity to access the dashboard</p>
+      
+      <!-- Phone Step -->
+      <div id="loginStepPhone">
+        <div class="form-group" style="text-align: left; margin-bottom: 20px; display: flex; flex-direction: column;">
+          <label style="color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">MOBILE NUMBER</label>
+          <div style="display: flex; gap: 8px; margin-top: 8px; align-items: center; width: 100%;">
+            <span style="background: rgba(255,255,255,0.05); padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border); color: #fff; font-weight: 600; font-size: 14px; height: 44px; display: flex; align-items: center;">+91</span>
+            <input type="text" id="loginPhone" class="form-input" placeholder="9876543210" style="margin-top: 0; height: 44px; flex: 1;" />
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width: 100%; height: 44px; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer;" onclick="sendAdminOtp()">Send OTP</button>
+      </div>
+
+      <!-- OTP Step -->
+      <div id="loginStepOtp" style="display: none;">
+        <p style="font-size: 13px; color: var(--muted); margin-bottom: 20px;">OTP sent to <span id="adminOtpPhone" style="color: #fff; font-weight: 600;"></span></p>
+        <div class="form-group" style="text-align: left; margin-bottom: 20px; display: flex; flex-direction: column;">
+          <label style="color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">ENTER 6-DIGIT OTP</label>
+          <input type="text" id="loginOtp" class="form-input" placeholder="123456" maxlength="6" style="text-align: center; letter-spacing: 6px; font-size: 18px; font-weight: 700; margin-top: 8px; height: 44px;" />
+        </div>
+        <button class="btn btn-primary" style="width: 100%; height: 44px; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer;" onclick="verifyAdminOtp()">Verify & Login</button>
+        <button class="btn btn-outline" style="width: 100%; height: 44px; border-radius: 12px; margin-top: 12px; font-size: 14px; cursor: pointer;" onclick="showPhoneStep()">Change Number</button>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>

@@ -210,7 +210,7 @@ class _SplashScreenState extends State<SplashScreen>
                           ),
                           const SizedBox(height: 8),
                           const Text(
-                            '2 0 2 4',
+                            '2 0 2 6',
                             style: TextStyle(
                               fontSize: 16,
                               letterSpacing: 10,

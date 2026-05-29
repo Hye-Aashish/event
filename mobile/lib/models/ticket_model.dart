@@ -112,4 +112,27 @@ class TicketModel {
     ];
     return '${purchasedAt.day} ${months[purchasedAt.month - 1]} ${purchasedAt.year}';
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'userId': userId,
+      'eventId': eventId,
+      'zoneId': zoneId,
+      'type': type,
+      'date': date,
+      'status': status,
+      'basePrice': basePrice,
+      'gstAmount': gstAmount,
+      'totalAmount': totalAmount,
+      'qrHash': qrHash,
+      'isScanned': isScanned ? 1 : 0,
+      'lastScannedAt': lastScannedAt?.toIso8601String(),
+      'createdAt': createdAt.toIso8601String(),
+      'eventName': eventName,
+      'zoneName': zoneName,
+      'zoneType': zoneType,
+      'eventVenue': eventVenue,
+    };
+  }
 }

@@ -1,14 +1,18 @@
-
-class AppConstant{
-
+class AppConstant {
   // adb reverse tcp:3000 tcp:3000
 
   // start backend
-  //   npm run start:dev
+  // npm run start:dev
+
+  // admin passs
+  // backend/seed.js
+  // after chnaging pass run on terminal : node seed.js
 
   // start admin
   // npx serve .
 
-
-  static const String baseUrl = 'http://localhost:3000/api';
+  static const String baseUrl = String.fromEnvironment(
+    'API_URL',
+    defaultValue: 'http://localhost:3000/api',
+  );
 }

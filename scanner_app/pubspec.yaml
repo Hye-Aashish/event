@@ -61,6 +61,7 @@ dependencies:
   uuid: ^4.4.0
   url_launcher: ^6.2.7
   permission_handler: ^11.3.1
+  package_info_plus: ^8.0.0
 
   # Icons
   cupertino_icons: ^1.0.8

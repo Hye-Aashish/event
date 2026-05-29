@@ -72,7 +72,7 @@ class NavratriApp extends StatelessWidget {
           '/login': (_) => const LoginScreen(),
           '/otp': (_) => const OtpScreen(),
           '/register': (_) => const RegisterScreen(),
-          '/home': (_) => const HomeScreen(),
+          '/home': (_) => HomeScreen(key: homeScreenKey),
           '/tickets': (_) => const TicketsScreen(),
           '/ticket-detail': (_) => const TicketDetailScreen(),
           '/verification': (_) => const VerificationScreen(),

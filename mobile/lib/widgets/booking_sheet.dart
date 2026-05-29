@@ -8,8 +8,10 @@ import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import '../models/event_model.dart';
 import '../providers/ticket_provider.dart';
+import '../screens/home_screen.dart';
 import '../theme/app_theme.dart';
 import 'gradient_button.dart';
+import 'custom_snackbar.dart';
 
 class BookingSheet extends StatefulWidget {
   final EventModel event;
@@ -30,7 +32,7 @@ class BookingSheet extends StatefulWidget {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => Dialog(
+      builder: (dialogContext) => Dialog(
         backgroundColor: Colors.transparent,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(28),
@@ -48,8 +50,8 @@ class BookingSheet extends StatefulWidget {
                   ],
                 ),
                 borderRadius: BorderRadius.circular(28),
-                border: Border.all(
-                    color: Colors.white.withOpacity(0.15), width: 1),
+                border:
+                    Border.all(color: Colors.white.withOpacity(0.15), width: 1),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -111,7 +113,21 @@ class BookingSheet extends StatefulWidget {
                     label: 'View My Tickets',
                     icon: Icons.confirmation_num_rounded,
                     gradient: AppColors.gradientSuccess,
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () {
+                      // 1. Switch bottom nav to index 2 (Tickets tab) via public interface
+                      final homeState = homeScreenKey.currentState;
+                      if (homeState is HomeScreenState) {
+                        (homeState as HomeScreenState).setIndex(2);
+                      }
+
+                      // 2. Dismiss success dialog
+                      Navigator.pop(dialogContext);
+
+                      // 3. Pop detail screen if we are pushed on top of HomeScreen
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                      }
+                    },
                   ),
                 ],
               ),
@@ -145,10 +161,9 @@ class _BookingSheetState extends State<BookingSheet>
     // Slide-up entrance animation
     _sheetController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 450));
-    _slideAnim =
-        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
-            CurvedAnimation(
-                parent: _sheetController, curve: Curves.easeOut));
+    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
+        .animate(
+            CurvedAnimation(parent: _sheetController, curve: Curves.easeOut));
     _sheetController.forward();
 
     _razorpay = Razorpay();
@@ -186,10 +201,9 @@ class _BookingSheetState extends State<BookingSheet>
                 decoration: BoxDecoration(
                   color: AppColors.surface.withOpacity(0.9),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                      color: AppColors.primary.withOpacity(0.3)),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
                 ),
-                child: Column(
+                child: const Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     SizedBox(
@@ -197,18 +211,18 @@ class _BookingSheetState extends State<BookingSheet>
                       height: 36,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                            AppColors.primary),
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(AppColors.primary),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    const Text('Verifying Payment...',
+                    SizedBox(height: 16),
+                    Text('Verifying Payment...',
                         style: TextStyle(
                             color: AppColors.textPrimary,
                             fontWeight: FontWeight.bold,
                             fontSize: 15)),
-                    const SizedBox(height: 4),
-                    const Text('Please wait',
+                    SizedBox(height: 4),
+                    Text('Please wait',
                         style: TextStyle(
                             color: AppColors.textMuted, fontSize: 12)),
                   ],
@@ -291,21 +305,50 @@ class _BookingSheetState extends State<BookingSheet>
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
+    CustomSnackBar.show(
+      context,
+      message: msg,
+      type: SnackBarType.error,
     );
+  }
+
+  double get _basePrice {
+    if (_selectedZone == null) return 0.0;
+    final rawPrice = _selectedZone!.priceFor(_ticketType);
+    if (widget.event.gstEnabled && widget.event.gstInclusive) {
+      return (rawPrice / (1 + (widget.event.gstPercentage / 100))).roundToDouble();
+    }
+    return rawPrice;
+  }
+
+  double get _gstAmount {
+    if (_selectedZone == null) return 0.0;
+    final rawPrice = _selectedZone!.priceFor(_ticketType);
+    if (widget.event.gstEnabled) {
+      if (widget.event.gstInclusive) {
+        final base = (rawPrice / (1 + (widget.event.gstPercentage / 100))).roundToDouble();
+        return rawPrice - base;
+      } else {
+        return (rawPrice * (widget.event.gstPercentage / 100)).roundToDouble();
+      }
+    }
+    return 0.0;
+  }
+
+  double get _totalPrice {
+    return _basePrice + _gstAmount;
+  }
+
+  String _zonePriceDisplay(ZoneModel zone) {
+    final rawPrice = zone.formattedPriceFor(_ticketType);
+    if (widget.event.gstEnabled && !widget.event.gstInclusive) {
+      return '$rawPrice + GST';
+    }
+    return rawPrice;
   }
 
   @override
   Widget build(BuildContext context) {
-    // Calculate total price for summary
-    final price = _selectedZone?.formattedPriceFor(_ticketType);
 
     return SlideTransition(
       position: _slideAnim,
@@ -314,13 +357,12 @@ class _BookingSheetState extends State<BookingSheet>
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
         child: ClipRRect(
-          borderRadius:
-              const BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
             child: Container(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
@@ -387,8 +429,7 @@ class _BookingSheetState extends State<BookingSheet>
                               decoration: BoxDecoration(
                                 color: AppColors.surfaceLight,
                                 shape: BoxShape.circle,
-                                border: Border.all(
-                                    color: AppColors.border),
+                                border: Border.all(color: AppColors.border),
                               ),
                               child: const Icon(Icons.close_rounded,
                                   color: AppColors.textMuted, size: 18),
@@ -405,8 +446,8 @@ class _BookingSheetState extends State<BookingSheet>
                       Row(
                         children: [
                           Expanded(
-                              child: _typeButton('daily', 'Daily Pass',
-                                  Icons.today_rounded)),
+                              child: _typeButton(
+                                  'daily', 'Daily Pass', Icons.today_rounded)),
                           const SizedBox(width: 10),
                           Expanded(
                               child: _typeButton('season', 'Season Pass',
@@ -436,47 +477,92 @@ class _BookingSheetState extends State<BookingSheet>
                       _sectionLabel('Select Zone'),
                       const SizedBox(height: 10),
                       ...widget.event.zones
-                          .where((z) =>
-                              z.type == _ticketType || z.type == 'both')
+                          .where(
+                              (z) => z.type == _ticketType || z.type == 'both')
                           .toList()
                           .asMap()
                           .entries
-                          .map((e) =>
-                              _zoneOption(e.value, e.key)),
+                          .map((e) => _zoneOption(e.value, e.key)),
 
                       // ── Price Summary ──────────────────────────────
                       if (_selectedZone != null) ...[
                         const SizedBox(height: 16),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
+                              horizontal: 16, vertical: 16),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(14),
+                            color: AppColors.primary.withOpacity(0.04),
+                            borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                                color: AppColors.primary.withOpacity(0.2)),
+                                color: AppColors.primary.withOpacity(0.15)),
                           ),
-                          child: Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
+                          child: Column(
                             children: [
-                              const Text('Total Amount',
-                                  style: TextStyle(
-                                      color: AppColors.textMuted,
-                                      fontSize: 13)),
-                              ShaderMask(
-                                shaderCallback: (b) =>
-                                    AppColors.gradientPrimary
-                                        .createShader(b),
-                                child: Text(
-                                  price ?? '',
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w900,
-                                    color: Colors.white,
-                                    letterSpacing: -0.3,
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('Ticket Price',
+                                      style: TextStyle(
+                                          color: AppColors.textMuted,
+                                          fontSize: 13)),
+                                  Text(
+                                    '₹${_basePrice.toStringAsFixed(0)}',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textSecondary,
+                                    ),
                                   ),
+                                ],
+                              ),
+                              if (widget.event.gstEnabled) ...[
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('GST (${widget.event.gstPercentage.toStringAsFixed(0)}% ${widget.event.gstInclusive ? "Incl." : "Excl."})',
+                                        style: const TextStyle(
+                                            color: AppColors.textMuted,
+                                            fontSize: 13)),
+                                    Text(
+                                      '₹${_gstAmount.toStringAsFixed(0)}',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                              ],
+                              const SizedBox(height: 12),
+                              Container(
+                                height: 1,
+                                color: AppColors.border,
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('Total Amount',
+                                      style: TextStyle(
+                                          color: AppColors.textPrimary,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14)),
+                                  ShaderMask(
+                                    shaderCallback: (b) =>
+                                        AppColors.gradientPrimary.createShader(b),
+                                    child: Text(
+                                      '₹${_totalPrice.toStringAsFixed(0)}',
+                                      style: const TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w900,
+                                        color: Colors.white,
+                                        letterSpacing: -0.3,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -487,7 +573,7 @@ class _BookingSheetState extends State<BookingSheet>
 
                       GradientButton(
                         label: _selectedZone != null
-                            ? 'Pay $price'
+                            ? 'Pay ₹${_totalPrice.toStringAsFixed(0)}'
                             : 'Select a Zone to Continue',
                         icon: _selectedZone != null
                             ? Icons.payment_rounded
@@ -501,16 +587,15 @@ class _BookingSheetState extends State<BookingSheet>
 
                       const SizedBox(height: 8),
                       // Secure payment note
-                      Row(
+                      const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.lock_outline_rounded,
+                          Icon(Icons.lock_outline_rounded,
                               size: 12, color: AppColors.textMuted),
-                          const SizedBox(width: 4),
-                          const Text('Secured by Razorpay',
+                          SizedBox(width: 4),
+                          Text('Secured by Razorpay',
                               style: TextStyle(
-                                  color: AppColors.textMuted,
-                                  fontSize: 11)),
+                                  color: AppColors.textMuted, fontSize: 11)),
                         ],
                       ),
                     ],
@@ -554,8 +639,7 @@ class _BookingSheetState extends State<BookingSheet>
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                      color: AppColors.primary.withOpacity(0.3),
-                      blurRadius: 12)
+                      color: AppColors.primary.withOpacity(0.3), blurRadius: 12)
                 ]
               : null,
         ),
@@ -584,8 +668,18 @@ class _BookingSheetState extends State<BookingSheet>
     try {
       final d = DateTime.parse(date);
       const months = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
       ];
       label = '${d.day} ${months[d.month - 1]}';
     } catch (_) {
@@ -609,8 +703,7 @@ class _BookingSheetState extends State<BookingSheet>
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                      color: AppColors.primary.withOpacity(0.3),
-                      blurRadius: 10)
+                      color: AppColors.primary.withOpacity(0.3), blurRadius: 10)
                 ]
               : null,
         ),
@@ -641,21 +734,14 @@ class _BookingSheetState extends State<BookingSheet>
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected
-              ? zoneColor.withOpacity(0.08)
-              : AppColors.surfaceLight,
+          color:
+              isSelected ? zoneColor.withOpacity(0.08) : AppColors.surfaceLight,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-              color: isSelected
-                  ? zoneColor.withOpacity(0.6)
-                  : AppColors.border,
+              color: isSelected ? zoneColor.withOpacity(0.6) : AppColors.border,
               width: isSelected ? 1.5 : 1.0),
           boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                      color: zoneColor.withOpacity(0.15),
-                      blurRadius: 12)
-                ]
+              ? [BoxShadow(color: zoneColor.withOpacity(0.15), blurRadius: 12)]
               : null,
         ),
         child: Row(
@@ -671,8 +757,7 @@ class _BookingSheetState extends State<BookingSheet>
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                            color: zoneColor.withOpacity(0.5),
-                            blurRadius: 6)
+                            color: zoneColor.withOpacity(0.5), blurRadius: 6)
                       ]
                     : null,
               ),
@@ -700,8 +785,7 @@ class _BookingSheetState extends State<BookingSheet>
             ),
             // Price
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: isSelected
                     ? zoneColor.withOpacity(0.12)
@@ -713,7 +797,7 @@ class _BookingSheetState extends State<BookingSheet>
                         : AppColors.border),
               ),
               child: Text(
-                zone.formattedPriceFor(_ticketType),
+                _zonePriceDisplay(zone),
                 style: TextStyle(
                     color: isSelected ? zoneColor : AppColors.textPrimary,
                     fontWeight: FontWeight.bold,
@@ -722,8 +806,7 @@ class _BookingSheetState extends State<BookingSheet>
             ),
             if (isSelected) ...[
               const SizedBox(width: 8),
-              Icon(Icons.check_circle_rounded,
-                  color: zoneColor, size: 20),
+              Icon(Icons.check_circle_rounded, color: zoneColor, size: 20),
             ],
           ],
         ),
