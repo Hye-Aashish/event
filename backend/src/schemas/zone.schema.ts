@@ -41,6 +41,9 @@ export class Zone {
   @Prop({ default: false })
   autoVerifySeasonPass: boolean;
 
+  @Prop({ default: true })
+  isMultipleAllowed: boolean;
+
   @Prop({ type: [String], default: [] })
   allowedTicketCategories: string[]; // ['VIP', 'General', 'Premium']
 }

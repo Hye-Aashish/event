@@ -72,6 +72,7 @@ class ZoneModel {
   final int capacity;
   final int availableSeats;
   final List<String> features;
+  final bool isMultipleAllowed;
 
   ZoneModel({
     required this.id,
@@ -82,6 +83,7 @@ class ZoneModel {
     required this.capacity,
     required this.availableSeats,
     required this.features,
+    required this.isMultipleAllowed,
   });
 
   factory ZoneModel.fromJson(Map<String, dynamic> json) {
@@ -94,6 +96,7 @@ class ZoneModel {
       capacity: json['capacity'] ?? 0,
       availableSeats: json['availableSeats'] ?? json['available'] ?? 0,
       features: List<String>.from(json['features'] ?? []),
+      isMultipleAllowed: json['isMultipleAllowed'] ?? true,
     );
   }
 

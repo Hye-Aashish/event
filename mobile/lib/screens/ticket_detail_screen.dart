@@ -25,9 +25,9 @@ class TicketDetailScreen extends StatefulWidget {
 class _TicketDetailScreenState extends State<TicketDetailScreen>
     with SingleTickerProviderStateMixin {
   final _transferPhoneController = TextEditingController();
-  bool _isTransferring = false;
   late AnimationController _qrController;
   late Animation<double> _qrScale;
+  TicketModel? _cachedTicket;
 
   @override
   void initState() {
@@ -63,7 +63,14 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
   Widget build(BuildContext context) {
     final ticketId = ModalRoute.of(context)?.settings.arguments as String?;
     final provider = context.watch<TicketProvider>();
-    final ticket = ticketId != null ? provider.getTicketById(ticketId) : null;
+    final activeTicket =
+        ticketId != null ? provider.getTicketById(ticketId) : null;
+
+    if (activeTicket != null) {
+      _cachedTicket = activeTicket;
+    }
+
+    final ticket = activeTicket ?? _cachedTicket;
 
     if (ticket == null) {
       return Scaffold(
@@ -172,8 +179,13 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                       child: Column(
                         children: [
-                          // ── Ticket Card ────────────────────────────
-                          _TicketQRCard(ticket: ticket, scaleAnim: _qrScale),
+                          // ── Ticket Card ────────────────────
+                          Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 4.0),
+                            child: _TicketQRCard(
+                                ticket: ticket, scaleAnim: _qrScale),
+                          ),
 
                           const SizedBox(height: 20),
 
@@ -220,6 +232,11 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
           _infoRow(
               Icons.layers_rounded, 'Zone Type', ticket.zoneType ?? 'General'),
           _divider(),
+          if (ticket.quantity > 1) ...[
+            _infoRow(
+                Icons.people_rounded, 'Quantity', '${ticket.quantity} Passes'),
+            _divider(),
+          ],
           _infoRow(Icons.confirmation_number_rounded, 'Ticket ID',
               '${ticket.id.substring(0, 12)}...'),
           if (ticket.isScanned) ...[
@@ -267,96 +284,557 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     );
   }
 
-  void _showTransfer(BuildContext context, TicketModel ticket) {
-    showDialog(
+  void _showTransfer(BuildContext context, TicketModel ticket) async {
+    final res = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Row(
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _TransferBottomSheet(ticket: ticket),
+    );
+
+    if (res != null && res['success'] == true && context.mounted) {
+      CustomSnackBar.show(
+        context,
+        message: res['message'] ?? 'Ticket transferred successfully! 🎉',
+        type: SnackBarType.success,
+        duration: const Duration(seconds: 4),
+      );
+      Navigator.pop(context);
+    }
+  }
+}
+
+// ── 2-Step OTP Transfer Bottom Sheet ─────────────────────────────────────────
+class _TransferBottomSheet extends StatefulWidget {
+  final TicketModel ticket;
+  const _TransferBottomSheet({required this.ticket});
+
+  @override
+  State<_TransferBottomSheet> createState() => _TransferBottomSheetState();
+}
+
+class _TransferBottomSheetState extends State<_TransferBottomSheet> {
+  // Step: 'details' → 'otp'
+  String _step = 'details';
+
+  // Step 1 state
+  final _phoneController = TextEditingController();
+  int _transferQty = 1;
+  bool _sending = false;
+
+  // Step 2 state
+  final _otpController = TextEditingController();
+  bool _confirming = false;
+  int _secondsLeft = 300; // 5 minutes
+  bool _canResend = false;
+
+  late int _maxQty;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _maxQty = widget.ticket.quantity;
+    _phoneController.addListener(() {
+      if (_errorMessage != null) {
+        setState(() => _errorMessage = null);
+      }
+    });
+    _otpController.addListener(() {
+      if (_errorMessage != null) {
+        setState(() => _errorMessage = null);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _otpController.dispose();
+    super.dispose();
+  }
+
+  void _startCountdown() {
+    _secondsLeft = 300;
+    _canResend = false;
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted) return false;
+      setState(() {
+        _secondsLeft = (_secondsLeft - 1).clamp(0, 300);
+        if (_secondsLeft <= 240) _canResend = true; // allow resend after 60s
+      });
+      return _secondsLeft > 0 && mounted;
+    });
+  }
+
+  String get _timerLabel {
+    final m = _secondsLeft ~/ 60;
+    final s = _secondsLeft % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _sendOtp() async {
+    final phone = _phoneController.text.trim();
+    if (phone.isEmpty || phone.length < 10) {
+      setState(() {
+        _errorMessage = 'Enter a valid 10-digit phone number';
+      });
+      return;
+    }
+    setState(() {
+      _sending = true;
+      _errorMessage = null;
+    });
+    final provider = context.read<TicketProvider>();
+    final res = await provider.initiateTransfer(
+      ticketId: widget.ticket.id,
+      quantity: _transferQty,
+      toPhone: phone,
+    );
+    setState(() => _sending = false);
+    if (!mounted) return;
+
+    if (res['success'] == true) {
+      setState(() {
+        _step = 'otp';
+        _errorMessage = null;
+      });
+      _startCountdown();
+    } else {
+      setState(() {
+        _errorMessage = res['message'] ?? 'Failed to send OTP';
+      });
+    }
+  }
+
+  Future<void> _confirmTransfer() async {
+    final otp = _otpController.text.trim();
+    if (otp.length != 6) {
+      setState(() {
+        _errorMessage = 'Enter the 6-digit OTP';
+      });
+      return;
+    }
+    setState(() {
+      _confirming = true;
+      _errorMessage = null;
+    });
+    final provider = context.read<TicketProvider>();
+    final res = await provider.confirmTransfer(
+      ticketId: widget.ticket.id,
+      quantity: _transferQty,
+      toPhone: _phoneController.text.trim(),
+      otp: otp,
+    );
+    setState(() => _confirming = false);
+    if (!mounted) return;
+
+    if (res['success'] == true) {
+      final returnData = Map<String, dynamic>.from(res);
+      returnData['message'] ??=
+          '$_transferQty pass${_transferQty > 1 ? 'es' : ''} transferred! 🎉';
+      Navigator.pop(context, returnData);
+    } else {
+      setState(() {
+        _errorMessage = res['message'] ?? 'Transfer failed';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: _step == 'details' ? _buildStep1() : _buildStep2(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStep1() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Handle bar
+        Center(
+          child: Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: AppColors.border,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+        // Title
+        Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 gradient: AppColors.gradientPrimary,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: const Icon(Icons.swap_horiz_rounded,
-                  color: Colors.white, size: 18),
+                  color: Colors.white, size: 20),
             ),
-            const SizedBox(width: 12),
-            const Text('Transfer Ticket',
-                style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: -0.3)),
+            const SizedBox(width: 14),
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Transfer Passes',
+                    style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.4)),
+                Text('Send to another user',
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+              ],
+            ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Enter the phone number to transfer to:',
-                style: TextStyle(color: AppColors.textMuted)),
-            const SizedBox(height: 12),
-            GlassCard(
-              padding: EdgeInsets.zero,
-              borderRadius: 12,
-              child: TextField(
-                controller: _transferPhoneController,
-                keyboardType: TextInputType.phone,
-                style: const TextStyle(color: AppColors.textPrimary),
-                decoration: const InputDecoration(
-                  hintText: '+91 98765 43210',
-                  hintStyle: TextStyle(color: AppColors.textMuted),
-                  prefixIcon: Icon(Icons.phone_rounded,
-                      color: AppColors.primary, size: 20),
-                  border: InputBorder.none,
-                  filled: false,
+        const SizedBox(height: 24),
+
+        // Recipient phone
+        const Text('Recipient Phone',
+            style: TextStyle(
+                color: AppColors.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3)),
+        const SizedBox(height: 8),
+        GlassCard(
+          padding: EdgeInsets.zero,
+          borderRadius: 14,
+          child: TextField(
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            style: const TextStyle(
+                color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            decoration: const InputDecoration(
+              hintText: '98765 43210',
+              hintStyle: TextStyle(color: AppColors.textMuted),
+              prefixIcon:
+                  Icon(Icons.phone_rounded, color: AppColors.primary, size: 20),
+              prefixText: '+91  ',
+              prefixStyle: TextStyle(
+                  color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+              border: InputBorder.none,
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Quantity stepper (only shown if >1 pass available)
+        if (_maxQty > 1) ...[
+          Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Passes to Transfer',
+                        style: TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.3)),
+                  ],
                 ),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel',
-                style: TextStyle(color: AppColors.textMuted)),
+              // Minus
+              _stepBtn(
+                icon: Icons.remove_rounded,
+                enabled: _transferQty > 1,
+                onTap: () => setState(
+                    () => _transferQty = (_transferQty - 1).clamp(1, _maxQty)),
+              ),
+              // Count
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 150),
+                transitionBuilder: (c, a) =>
+                    ScaleTransition(scale: a, child: c),
+                child: SizedBox(
+                  key: ValueKey(_transferQty),
+                  width: 44,
+                  child: Center(
+                    child: Text('$_transferQty',
+                        style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 20)),
+                  ),
+                ),
+              ),
+              // Plus
+              _stepBtn(
+                icon: Icons.add_rounded,
+                enabled: _transferQty < _maxQty,
+                onTap: () => setState(
+                    () => _transferQty = (_transferQty + 1).clamp(1, _maxQty)),
+              ),
+            ],
           ),
+          const SizedBox(height: 8),
+          Text(
+            '$_transferQty of $_maxQty active passes selected',
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        if (_errorMessage != null) ...[
           Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              gradient: AppColors.gradientPrimary,
-              borderRadius: BorderRadius.circular(10),
+              color: Colors.red.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.red.withOpacity(0.3)),
             ),
-            child: TextButton(
-              onPressed: _isTransferring
-                  ? null
-                  : () async {
-                      final phone = _transferPhoneController.text.trim();
-                      if (phone.isEmpty) return;
-                      setState(() => _isTransferring = true);
-                      final res = await context
-                          .read<TicketProvider>()
-                          .transferTicket(ticket.id, phone);
-                      setState(() => _isTransferring = false);
-                      if (!context.mounted) return;
-                      Navigator.pop(context);
-                      CustomSnackBar.show(
-                        context,
-                        message: res['success'] == true
-                            ? 'Ticket transferred successfully!'
-                            : (res['message'] ?? 'Transfer failed'),
-                        type: res['success'] == true
-                            ? SnackBarType.success
-                            : SnackBarType.error,
-                      );
-                    },
-              child: const Text('Transfer',
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold)),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline_rounded,
+                    color: Colors.red, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(
+                        color: Colors.red,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
+
+        // Warning card
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.orange.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.orange.withOpacity(0.3)),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 18),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'An OTP will be sent to your registered number to confirm this transfer. This cannot be undone.',
+                  style: TextStyle(
+                      color: Colors.orange, fontSize: 12, height: 1.4),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // Send OTP button
+        SizedBox(
+          width: double.infinity,
+          child: GradientButton(
+            label: _sending ? 'Sending OTP...' : 'Send OTP',
+            icon: Icons.sms_rounded,
+            isLoading: _sending,
+            onPressed: _sending ? null : _sendOtp,
+            gradient: AppColors.gradientPrimary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep2() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Handle bar
+        Center(
+          child: Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: AppColors.border,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+
+        // Back to step 1
+        GestureDetector(
+          onTap: () => setState(() {
+            _step = 'details';
+            _otpController.clear();
+          }),
+          child: Row(
+            children: [
+              const Icon(Icons.arrow_back_ios_new_rounded,
+                  color: AppColors.primary, size: 14),
+              const SizedBox(width: 4),
+              Text('Back  •  ${_phoneController.text.trim()}',
+                  style:
+                      const TextStyle(color: AppColors.primary, fontSize: 13)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Title
+        const Text('Enter OTP',
+            style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5)),
+        const SizedBox(height: 4),
+        Text(
+          'Sent to your registered phone. Expires in $_timerLabel',
+          style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+        ),
+        const SizedBox(height: 24),
+
+        // OTP input — large centered field
+        GlassCard(
+          padding: EdgeInsets.zero,
+          borderRadius: 16,
+          child: TextField(
+            controller: _otpController,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w800,
+              fontSize: 28,
+              letterSpacing: 10,
+            ),
+            decoration: const InputDecoration(
+              hintText: '• • • • • •',
+              hintStyle: TextStyle(
+                  color: AppColors.textMuted, fontSize: 22, letterSpacing: 8),
+              border: InputBorder.none,
+              counterText: '',
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Resend row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text("Didn't receive it?  ",
+                style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+            GestureDetector(
+              onTap: _canResend
+                  ? () {
+                      _otpController.clear();
+                      setState(() => _step = 'details');
+                    }
+                  : null,
+              child: Text(
+                _canResend ? 'Resend OTP' : 'Resend in $_timerLabel',
+                style: TextStyle(
+                    color: _canResend ? AppColors.primary : AppColors.textMuted,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+
+        if (_errorMessage != null) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.red.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline_rounded,
+                    color: Colors.red, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(
+                        color: Colors.red,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+
+        // Confirm button
+        SizedBox(
+          width: double.infinity,
+          child: GradientButton(
+            label: _confirming
+                ? 'Transferring...'
+                : 'Confirm Transfer ($_transferQty ${_transferQty == 1 ? 'pass' : 'passes'})',
+            icon: Icons.check_circle_rounded,
+            isLoading: _confirming,
+            onPressed: _confirming ? null : _confirmTransfer,
+            gradient: AppColors.gradientNavratri,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _stepBtn({
+    required IconData icon,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          gradient: enabled ? AppColors.gradientPrimary : null,
+          color: enabled ? null : AppColors.border,
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Icon(icon,
+            color: enabled ? Colors.white : AppColors.textMuted, size: 16),
       ),
     );
   }

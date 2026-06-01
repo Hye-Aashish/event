@@ -141,7 +141,7 @@
         <div class="glass-card">
           <div class="card-header">
             <h3>All Zones</h3>
-            <button class="btn btn-primary" onclick="openModal('zoneModal')">+ New Zone</button>
+            <button class="btn btn-primary" onclick="openZoneModal(true)">+ New Zone</button>
           </div>
           <div class="filter-bar">
             <select id="zoneEventFilter" onchange="loadZones()" class="select-input">
@@ -182,7 +182,7 @@
           </div>
           <div class="table-wrap">
             <table class="data-table">
-              <thead><tr><th>ID</th><th>User</th><th>Event</th><th>Type</th><th>Category</th><th>Status</th><th>Verified</th><th>Amount</th><th>Actions</th></tr></thead>
+              <thead><tr><th>ID</th><th>User</th><th>Event</th><th>Zone</th><th>Type</th><th>Category</th><th>Status</th><th>Verified</th><th>Order Qty</th><th>Amount</th><th>Actions</th></tr></thead>
               <tbody id="ticketsTable"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
             </table>
           </div>
@@ -237,14 +237,24 @@
             <h3>Scan Logs</h3>
             <div class="filter-bar inline">
               <select id="scanEventFilter" onchange="loadScanLogs()" class="select-input">
-                <option value="">Select Event</option>
+                <option value="">All Events</option>
               </select>
             </div>
           </div>
           <div class="table-wrap">
             <table class="data-table">
-              <thead><tr><th>Time</th><th>Ticket</th><th>Status</th><th>Zone</th><th>Message</th></tr></thead>
-              <tbody id="scanLogsTable"><tr><td colspan="5" class="loading">Select an event to load logs</td></tr></tbody>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Ticket Owner</th>
+                  <th>Scanner</th>
+                  <th>Status</th>
+                  <th>Zone</th>
+                  <th>Event</th>
+                  <th>Message</th>
+                </tr>
+              </thead>
+              <tbody id="scanLogsTable"><tr><td colspan="7" class="loading">Loading logs...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -276,6 +286,7 @@
           <div class="tab-bar" id="logTabBar">
             <button class="tab-btn active" id="logTab-scan"    onclick="switchLogTab('scan')"   >📡 Scan Logs</button>
             <button class="tab-btn"        id="logTab-transfer" onclick="switchLogTab('transfer')">🔄 Transfers</button>
+            <button class="tab-btn"        id="logTab-purchase" onclick="switchLogTab('purchase')">🛒 Purchases</button>
             <button class="tab-btn"        id="logTab-admin"   onclick="switchLogTab('admin')"  >🛡️ Admin Actions</button>
             <button class="tab-btn"        id="logTab-auth"    onclick="switchLogTab('auth')"   >🔑 Auth / Login</button>
           </div>
@@ -336,6 +347,11 @@
               <div class="form-group full">
                 <label>Default GST Percentage (%)</label>
                 <input id="setDefaultGst" type="number" class="form-input" value="18" />
+              </div>
+              <div class="form-group full">
+                <label>Max Tickets Per Order</label>
+                <input id="setMaxTicketsPerOrder" type="number" class="form-input" value="10" min="1" max="50" />
+                <small style="color:var(--muted);font-size:11px;display:block;margin-top:4px">Maximum number of passes a user can purchase in a single transaction</small>
               </div>
             </div>
             <div class="mt-4">
@@ -475,6 +491,12 @@
             <select id="zoneAutoVerify" class="form-input">
               <option value="false">No</option>
               <option value="true">Yes</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Allow Multiple Pass Purchases</label>
+            <select id="zoneIsMultipleAllowed" class="form-input">
+              <option value="true">Yes</option>
+              <option value="false">No</option>
             </select>
           </div>
           <div class="form-group full"><label>Allowed Categories (comma separated)</label>

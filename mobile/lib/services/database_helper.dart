@@ -20,8 +20,9 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
     );
   }
 
@@ -45,9 +46,16 @@ class DatabaseHelper {
         eventName TEXT,
         zoneName TEXT,
         zoneType TEXT,
-        eventVenue TEXT
+        eventVenue TEXT,
+        quantity INTEGER NOT NULL DEFAULT 1
       )
     ''');
+  }
+
+  Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE tickets ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1');
+    }
   }
 
   Future<void> saveTickets(List<TicketModel> tickets) async {

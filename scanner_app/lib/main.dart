@@ -10,23 +10,34 @@ import 'screens/scanner_screen.dart';
 import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
 import 'widgets/glass_card.dart';
+import 'services/dio_client.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ScannerApp());
+  final authProvider = AuthProvider();
+  DioClient.onUnauthorized = () {
+    authProvider.logout(remote: false);
+    navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (route) => false);
+  };
+
+  runApp(ScannerApp(authProvider: authProvider));
 }
 
 class ScannerApp extends StatelessWidget {
-  const ScannerApp({super.key});
+  final AuthProvider authProvider;
+  const ScannerApp({super.key, required this.authProvider});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
       ],
       child: MaterialApp(
         title: 'Navratri Gate Scanner',
+        navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
         initialRoute: '/splash',

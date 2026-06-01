@@ -52,6 +52,13 @@ export class TransferLog {
 
   @Prop({ default: 'completed', enum: ['pending', 'completed', 'rejected'] })
   status: string;
+
+  @Prop({ type: Object })
+  metadata: {
+    quantity: number;
+    batchTransfer: boolean;
+    otpVerified: boolean;
+  };
 }
 export const TransferLogSchema = SchemaFactory.createForClass(TransferLog);
 TransferLogSchema.index({ fromUserId: 1, createdAt: -1 });

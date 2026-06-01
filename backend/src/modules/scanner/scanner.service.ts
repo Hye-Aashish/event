@@ -70,32 +70,45 @@ export class ScannerService {
 
       // 4. Status check
       if (ticket.status !== 'active') {
-        await this.scanLogModel.create({ ...logBase, status: 'fraud', eventId: ticket.eventId, zoneId: ticket.zoneId, message: `Status: ${ticket.status}` });
+        await this.scanLogModel.create({ ...logBase, status: 'fraud', eventId: ticket.eventId?._id || ticket.eventId, zoneId: ticket.zoneId?._id || ticket.zoneId, message: `Status: ${ticket.status}` });
         throw new BadRequestException(`Ticket is ${ticket.status}`);
       }
 
       // 5. Type-specific rules
       if (ticket.type === 'season') {
         if (!ticket.isVerified) {
-          await this.scanLogModel.create({ ...logBase, status: 'unverified', eventId: ticket.eventId, message: 'Not verified' });
+          await this.scanLogModel.create({ ...logBase, status: 'unverified', eventId: ticket.eventId?._id || ticket.eventId, zoneId: ticket.zoneId?._id || ticket.zoneId, message: 'Not verified' });
           throw new BadRequestException('Season pass not verified');
         }
         if (ticket.isScannedToday) {
-          await this.scanLogModel.create({ ...logBase, status: 'duplicate', eventId: ticket.eventId, message: 'Already scanned today' });
+          await this.scanLogModel.create({ ...logBase, status: 'duplicate', eventId: ticket.eventId?._id || ticket.eventId, zoneId: ticket.zoneId?._id || ticket.zoneId, message: 'Already scanned today' });
           throw new BadRequestException('Already scanned today');
         }
       } else {
-        if (ticket.totalScans > 0) {
-          await this.scanLogModel.create({ ...logBase, status: 'duplicate', eventId: ticket.eventId, message: 'Already used' });
-          throw new BadRequestException('Regular pass already used');
+        if (ticket.totalScans >= (ticket.quantity || 1)) {
+          await this.scanLogModel.create({ ...logBase, status: 'duplicate', eventId: ticket.eventId?._id || ticket.eventId, zoneId: ticket.zoneId?._id || ticket.zoneId, message: 'Already fully scanned' });
+          throw new BadRequestException('Pass already fully scanned/used');
         }
       }
 
       // 6. Mark scanned (only if not read-only validation)
       if (!readOnly) {
+        const remaining = (ticket.quantity || 1) - ticket.totalScans;
+        const isSeason = ticket.type === 'season';
+        const isFullyScanned = !isSeason;
+        const newStatus = isSeason ? 'active' : 'used';
+
         await this.ticketModel.updateOne(
           { _id: id },
-          { $set: { isScannedToday: true, isScanned: true, lastScannedAt: new Date() }, $inc: { totalScans: 1 } }
+          { 
+            $set: { 
+              isScannedToday: true, 
+              isScanned: isFullyScanned, 
+              status: newStatus,
+              lastScannedAt: new Date() 
+            }, 
+            $inc: { totalScans: remaining } 
+          }
         );
 
         // 7. Log success (async — don't block response)
@@ -104,9 +117,12 @@ export class ScannerService {
           eventId: (ticket.eventId as any)?._id,
           zoneId: (ticket.zoneId as any)?._id,
           status: 'success',
-          message: 'Access granted',
+          message: `Access granted (All ${ticket.quantity || 1} passes admitted)`,
         });
       }
+
+      const groupTotal = ticket.quantity || 1;
+      const groupScanned = ticket.quantity || 1;
 
       return {
         success: true,
@@ -120,6 +136,8 @@ export class ScannerService {
             name: (ticket.userId as any).name || 'Unknown',
             phone: (ticket.userId as any).phoneNumber || '',
           } : null,
+          groupTotal,
+          groupScanned,
         },
       };
 

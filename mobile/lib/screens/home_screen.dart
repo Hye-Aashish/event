@@ -384,7 +384,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                   // ── Header ─────────────────────────────────────────────
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                       child: Row(
                         children: [
                           Expanded(
@@ -424,7 +424,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                   // ── Stats ───────────────────────────────────────────────
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                       child: Row(
                         children: tickets.isLoading || events.isLoading
                             ? [
@@ -467,7 +467,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                   if (!tickets.isLoading && tickets.activeTickets.isNotEmpty)
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                         child: GestureDetector(
                           onTap: () {
                             final ticket = tickets.activeTickets.first;
@@ -534,7 +534,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                   // ── Premium Banner ───────────────────────────────────────────────
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                       child: _PremiumBanner(context: context),
                     ),
                   ),
@@ -543,12 +543,12 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                   if (events.isLoading)
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 28, 0, 0),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Padding(
-                              padding: EdgeInsets.only(right: 24),
+                              padding: EdgeInsets.only(right: 16),
                               child: Text('Upcoming Events',
                                   style: TextStyle(
                                       fontSize: 18,
@@ -573,7 +573,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                   else if (events.activeEvents.isNotEmpty)
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 28, 0, 0),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -619,7 +619,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                   // ── Quick Actions ───────────────────────────────────────
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -697,7 +697,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                   if (tickets.isLoading) ...[
                     const SliverToBoxAdapter(
                       child: Padding(
-                        padding: EdgeInsets.fromLTRB(24, 28, 24, 16),
+                        padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
                         child: Text('Recent Tickets',
                             style: TextStyle(
                                 fontSize: 18,
@@ -710,7 +710,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                       delegate: SliverChildBuilderDelegate(
                         (ctx, i) => const Padding(
                           padding:
-                              EdgeInsets.symmetric(horizontal: 24, vertical: 5),
+                              EdgeInsets.symmetric(horizontal: 16, vertical: 5),
                           child: TicketSkeletonRow(),
                         ),
                         childCount: 3,
@@ -719,7 +719,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                   ] else if (tickets.tickets.isNotEmpty) ...[
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -747,7 +747,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                           final t = tickets.tickets[i];
                           return Padding(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 24, vertical: 5),
+                                horizontal: 16, vertical: 5),
                             child: _ticketRow(context, t),
                           );
                         },

@@ -8,6 +8,13 @@ import { Roles } from '../auth/roles.decorator';
 export class TicketsController {
   constructor(private readonly ticketsService: TicketsService) {}
 
+  // ── Get max tickets per order setting (used by mobile app on booking sheet) ──
+  @UseGuards(JwtAuthGuard)
+  @Get('settings/max-qty')
+  getMaxQty() {
+    return this.ticketsService.getMaxTicketsPerOrder();
+  }
+
   @UseGuards(JwtAuthGuard)
   @Post('order')
   createOrder(@Request() req, @Body() body: any) {
@@ -33,10 +40,28 @@ export class TicketsController {
     return this.ticketsService.getMyTickets(req.user.sub);
   }
 
+  // ── Transfer: Step 1 — initiate and send OTP to sender's phone ───────────
+  // Initiate transfer of passes
   @UseGuards(JwtAuthGuard)
-  @Post(':id/transfer')
-  transfer(@Param('id') id: string, @Request() req, @Body() body: any) {
-    return this.ticketsService.transferTicket(id, req.user.sub, body.toPhone);
+  @Post('transfer/initiate')
+  initiateTransfer(@Request() req, @Body() body: any) {
+    return this.ticketsService.initiateTransfer(req.user.sub, {
+      ticketId: body.ticketId,
+      quantity: Number(body.quantity),
+      toPhone: body.toPhone,
+    });
+  }
+
+  // ── Transfer: Step 2 — confirm with OTP and execute transfer ─────────────
+  @UseGuards(JwtAuthGuard)
+  @Post('transfer/confirm')
+  confirmTransfer(@Request() req, @Body() body: any) {
+    return this.ticketsService.confirmTransfer(req.user.sub, {
+      ticketId: body.ticketId,
+      quantity: Number(body.quantity),
+      toPhone: body.toPhone,
+      otp: body.otp,
+    });
   }
 
   @UseGuards(JwtAuthGuard)

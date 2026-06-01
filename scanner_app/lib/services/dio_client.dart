@@ -5,6 +5,7 @@ import 'api_service.dart';
 class DioClient {
   static final DioClient instance = DioClient._init();
   static Dio? _dio;
+  static VoidCallback? onUnauthorized;
 
   DioClient._init();
 
@@ -46,12 +47,19 @@ class DioClient {
           }
           return handler.next(response);
         },
-        onError: (DioException e, handler) {
+        onError: (DioException e, handler) async {
           if (kDebugMode) {
             print(
                 '❌ [Dio Scanner Error] ${e.type} | ${e.message} | Path: ${e.requestOptions.path}');
             if (e.response != null) {
               print('📥 Error Response Data: ${e.response?.data}');
+            }
+          }
+          if (e.response?.statusCode == 401) {
+            await ApiService.clearToken();
+            final path = e.requestOptions.path;
+            if (path != '/auth/logout' && path != 'auth/logout' && onUnauthorized != null) {
+              onUnauthorized!();
             }
           }
           return handler.next(e);

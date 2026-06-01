@@ -174,11 +174,13 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> logout() async {
-    debugPrint('AuthProvider.logout() called');
-    try {
-      await ApiService.logout();
-    } catch (_) {}
+  Future<void> logout({bool remote = true}) async {
+    debugPrint('AuthProvider.logout() called (remote: $remote)');
+    if (remote) {
+      try {
+        await ApiService.logout();
+      } catch (_) {}
+    }
     await _clearUserSecurely();
     _user = null;
     _state = AuthState.unauthenticated;

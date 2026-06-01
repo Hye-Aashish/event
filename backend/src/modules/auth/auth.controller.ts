@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Patch, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Delete, Body, UseGuards, Request } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -41,5 +41,11 @@ export class AuthController {
   @Post('verify/submit')
   async submitVerification(@Request() req, @Body() body: { selfieUrl: string; idCardUrl: string }) {
     return this.authService.submitVerification(req.user.sub, body.selfieUrl, body.idCardUrl);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('account')
+  async deleteAccount(@Request() req) {
+    return this.authService.deleteAccount(req.user.sub);
   }
 }

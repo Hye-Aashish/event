@@ -206,16 +206,46 @@ class AuthProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> logout() async {
-    if (kDebugMode) print('🚪 User Logout');
-    try {
-      await ApiService.logout();
-    } catch (_) {}
+  Future<void> logout({bool remote = true}) async {
+    if (kDebugMode) print('🚪 User Logout (remote: $remote)');
+    if (remote) {
+      try {
+        await ApiService.logout();
+      } catch (_) {}
+    }
     await _clearUserSecurely();
     await DatabaseHelper.instance.clearTickets();
     _user = null;
     _state = AuthState.unauthenticated;
     notifyListeners();
+  }
+
+  Future<Map<String, dynamic>> deleteAccount() async {
+    _state = AuthState.loading;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final res = await ApiService.deleteAccount();
+      if (res['success'] == true) {
+        await _clearUserSecurely();
+        await DatabaseHelper.instance.clearTickets();
+        _user = null;
+        _state = AuthState.unauthenticated;
+        notifyListeners();
+        return {'success': true};
+      } else {
+        _errorMessage = res['message'] ?? 'Failed to delete account';
+        _state = AuthState.authenticated; // keep as authenticated if failed
+        notifyListeners();
+        return {'success': false, 'message': _errorMessage};
+      }
+    } catch (e) {
+      _errorMessage = 'Network error. Please try again.';
+      _state = AuthState.authenticated;
+      notifyListeners();
+      return {'success': false, 'message': _errorMessage};
+    }
   }
 
   Future<Map<String, dynamic>> submitVerification(

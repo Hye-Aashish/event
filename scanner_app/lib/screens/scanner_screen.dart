@@ -118,13 +118,18 @@ class _ScannerScreenState extends State<ScannerScreen>
 
       setState(() {
         _success = isSuccess;
-        _lastResult = isSuccess
-            ? 'Ticket verified successfully!'
-            : (res['message'] ?? 'Invalid ticket');
         _ticketData = res['ticket'];
+        _lastResult = isSuccess
+            ? (_ticketData != null && _ticketData!['groupTotal'] != null && (_ticketData!['groupTotal'] as int) > 1
+                ? 'Admitted ${_ticketData!['groupTotal']} people!'
+                : 'Ticket verified successfully!')
+            : (res['message'] ?? 'Invalid ticket');
         _isProcessing = false;
-        // #7 increment counter only on successful scans
-        if (isSuccess) _sessionScanCount++;
+        // Increment counter by the total quantity checked in on this scan
+        if (isSuccess) {
+          final int qty = _ticketData != null ? (_ticketData!['groupTotal'] as int? ?? 1) : 1;
+          _sessionScanCount += qty;
+        }
       });
 
       // #8 Extended auto-dismiss: 8 seconds + countdown
@@ -634,6 +639,14 @@ class _ScannerScreenState extends State<ScannerScreen>
                                               'Ticket Category / Zone',
                                               '${_ticketData!['zone'] ?? 'N/A'} ( ${_ticketData!['type'] ?? ''} )'
                                                   .toUpperCase()),
+                                          if (_ticketData!['groupTotal'] != null) ...[
+                                            const SizedBox(height: 10),
+                                            _buildDetailRow(
+                                                Icons.people_rounded,
+                                                'Pass Quantity',
+                                                '${_ticketData!['groupTotal']} PASSES (${_ticketData!['groupTotal']} PEOPLE ALLOWED)'
+                                                    .toUpperCase()),
+                                          ],
                                         ],
                                       ],
                                     ),

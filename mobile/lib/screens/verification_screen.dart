@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
@@ -52,9 +53,116 @@ class _VerificationScreenState extends State<VerificationScreen>
   Future<void> _takeSelfie() async {
     final img = await _imagePicker.pickImage(
         source: ImageSource.camera, imageQuality: 70);
-    if (img != null) {
-      if (kDebugMode) print('📸 Selfie: ${img.path}');
+    if (img == null) return;
+    if (!mounted) return;
+
+    if (kDebugMode) print('📸 Selfie captured: ${img.path}');
+
+    // Show analyzing dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: AppColors.surface.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                ),
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(AppColors.primary),
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    Text('Analyzing Selfie...',
+                        style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15)),
+                    SizedBox(height: 4),
+                    Text('Detecting face offline',
+                        style: TextStyle(
+                            color: AppColors.textMuted, fontSize: 12)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final inputImage = InputImage.fromFilePath(img.path);
+    final faceDetector = FaceDetector(
+      options: FaceDetectorOptions(
+        performanceMode: FaceDetectorMode.accurate,
+      ),
+    );
+
+    try {
+      final List<Face> faces = await faceDetector.processImage(inputImage);
+
+      // Close analyzing dialog
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      if (!mounted) return;
+
+      if (faces.isEmpty) {
+        CustomSnackBar.show(
+          context,
+          message:
+              'No face detected in the picture. Please capture a clear selfie of your face.',
+          type: SnackBarType.error,
+        );
+        return;
+      }
+
+      if (faces.length > 1) {
+        CustomSnackBar.show(
+          context,
+          message:
+              'Multiple faces detected. Please make sure only you are in the frame.',
+          type: SnackBarType.error,
+        );
+        return;
+      }
+
+      // Success - 1 face detected
       setState(() => _selfieFile = img);
+      CustomSnackBar.show(
+        context,
+        message: 'Selfie verified successfully!',
+        type: SnackBarType.success,
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // Close analyzing dialog
+        CustomSnackBar.show(
+          context,
+          message: 'Error analyzing face: $e',
+          type: SnackBarType.error,
+        );
+      }
+    } finally {
+      faceDetector.close();
     }
   }
 

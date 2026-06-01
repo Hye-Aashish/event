@@ -17,6 +17,7 @@ class TicketModel {
   final String? zoneName;
   final String? zoneType;
   final String? eventVenue;
+  final int quantity;
 
   TicketModel({
     required this.id,
@@ -37,6 +38,7 @@ class TicketModel {
     this.zoneName,
     this.zoneType,
     this.eventVenue,
+    this.quantity = 1,
   });
 
   factory TicketModel.fromJson(Map<String, dynamic> json) {
@@ -70,6 +72,7 @@ class TicketModel {
       zoneName: zone?['name'] ?? json['zoneName'],
       zoneType: zone?['type'] ?? json['zoneType'],
       eventVenue: event?['venue'] ?? json['eventVenue'],
+      quantity: (json['quantity'] as num?)?.toInt() ?? 1,
     );
   }
 
@@ -133,6 +136,7 @@ class TicketModel {
       'zoneName': zoneName,
       'zoneType': zoneType,
       'eventVenue': eventVenue,
+      'quantity': quantity,
     };
   }
 }

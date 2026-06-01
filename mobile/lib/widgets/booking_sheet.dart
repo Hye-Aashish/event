@@ -3,11 +3,13 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import '../models/event_model.dart';
 import '../providers/ticket_provider.dart';
+import '../providers/auth_provider.dart';
 import '../screens/home_screen.dart';
 import '../theme/app_theme.dart';
 import 'gradient_button.dart';
@@ -149,7 +151,8 @@ class _BookingSheetState extends State<BookingSheet>
   ZoneModel? _selectedZone;
   String _ticketType = 'daily';
   bool _isLoading = false;
-  final int _quantity = 1;
+  int _quantity = 1;
+  int _maxQuantity = 10;
 
   late AnimationController _sheetController;
   late Animation<Offset> _slideAnim;
@@ -174,6 +177,15 @@ class _BookingSheetState extends State<BookingSheet>
     if (widget.event.eventDates.isNotEmpty) {
       _selectedDate = widget.event.eventDates[0];
     }
+
+    // Fetch max tickets per order from backend settings
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final provider = context.read<TicketProvider>();
+      await provider.fetchMaxTicketsPerOrder();
+      if (mounted) {
+        setState(() => _maxQuantity = provider.maxTicketsPerOrder);
+      }
+    });
   }
 
   @override
@@ -316,7 +328,8 @@ class _BookingSheetState extends State<BookingSheet>
     if (_selectedZone == null) return 0.0;
     final rawPrice = _selectedZone!.priceFor(_ticketType);
     if (widget.event.gstEnabled && widget.event.gstInclusive) {
-      return (rawPrice / (1 + (widget.event.gstPercentage / 100))).roundToDouble();
+      return (rawPrice / (1 + (widget.event.gstPercentage / 100)))
+          .roundToDouble();
     }
     return rawPrice;
   }
@@ -326,7 +339,8 @@ class _BookingSheetState extends State<BookingSheet>
     final rawPrice = _selectedZone!.priceFor(_ticketType);
     if (widget.event.gstEnabled) {
       if (widget.event.gstInclusive) {
-        final base = (rawPrice / (1 + (widget.event.gstPercentage / 100))).roundToDouble();
+        final base = (rawPrice / (1 + (widget.event.gstPercentage / 100)))
+            .roundToDouble();
         return rawPrice - base;
       } else {
         return (rawPrice * (widget.event.gstPercentage / 100)).roundToDouble();
@@ -335,8 +349,20 @@ class _BookingSheetState extends State<BookingSheet>
     return 0.0;
   }
 
+  // Per-ticket total (base + GST for one ticket)
+  double get _pricePerTicket => _basePrice + _gstAmount;
+
   double get _totalPrice {
-    return _basePrice + _gstAmount;
+    return _pricePerTicket * _quantity;
+  }
+
+  // Effective max: min of setting and available seats
+  int get _effectiveMaxQty {
+    if (_selectedZone == null) return _maxQuantity;
+    if (_selectedZone!.availableSeats <= 0) return 0;
+    if (!_selectedZone!.isMultipleAllowed) return 1;
+    final available = _selectedZone!.availableSeats;
+    return available.clamp(1, _maxQuantity);
   }
 
   String _zonePriceDisplay(ZoneModel zone) {
@@ -349,6 +375,10 @@ class _BookingSheetState extends State<BookingSheet>
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final user = authProvider.user;
+    final verificationStatus = user?.verificationStatus ?? 'none';
+    final verificationReason = user?.verificationReason;
 
     return SlideTransition(
       position: _slideAnim,
@@ -473,59 +503,55 @@ class _BookingSheetState extends State<BookingSheet>
                         const SizedBox(height: 20),
                       ],
 
-                      // ── Zone selector ──────────────────────────────
-                      _sectionLabel('Select Zone'),
-                      const SizedBox(height: 10),
-                      ...widget.event.zones
-                          .where(
-                              (z) => z.type == _ticketType || z.type == 'both')
-                          .toList()
-                          .asMap()
-                          .entries
-                          .map((e) => _zoneOption(e.value, e.key)),
+                      // ── Zone selector & Checkout / Verification Prompt ──
+                      if (_ticketType == 'season' &&
+                          verificationStatus != 'approved') ...[
+                        _buildVerificationPrompt(
+                            context, verificationStatus, verificationReason),
+                      ] else ...[
+                        _sectionLabel('Select Zone'),
+                        const SizedBox(height: 10),
+                        ...widget.event.zones
+                            .where((z) =>
+                                z.type == _ticketType || z.type == 'both')
+                            .toList()
+                            .asMap()
+                            .entries
+                            .map((e) => _zoneOption(e.value, e.key)),
 
-                      // ── Price Summary ──────────────────────────────
-                      if (_selectedZone != null) ...[
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 16),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.04),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                                color: AppColors.primary.withOpacity(0.15)),
-                          ),
-                          child: Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text('Ticket Price',
-                                      style: TextStyle(
-                                          color: AppColors.textMuted,
-                                          fontSize: 13)),
-                                  Text(
-                                    '₹${_basePrice.toStringAsFixed(0)}',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (widget.event.gstEnabled) ...[
-                                const SizedBox(height: 8),
+                        // ── Quantity Selector ──────────────────────────────────
+                        if (_selectedZone != null) ...[
+                          const SizedBox(height: 20),
+                          _sectionLabel('Quantity'),
+                          const SizedBox(height: 10),
+                          _buildQuantityStepper(),
+                        ],
+
+                        // ── Price Summary ──────────────────────────────
+                        if (_selectedZone != null) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 16),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.04),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                  color: AppColors.primary.withOpacity(0.15)),
+                            ),
+                            child: Column(
+                              children: [
+                                // Per-ticket price row
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text('GST (${widget.event.gstPercentage.toStringAsFixed(0)}% ${widget.event.gstInclusive ? "Incl." : "Excl."})',
-                                        style: const TextStyle(
+                                    const Text('Per Ticket',
+                                        style: TextStyle(
                                             color: AppColors.textMuted,
                                             fontSize: 13)),
                                     Text(
-                                      '₹${_gstAmount.toStringAsFixed(0)}',
+                                      '₹${_pricePerTicket.toStringAsFixed(0)}',
                                       style: const TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600,
@@ -534,70 +560,118 @@ class _BookingSheetState extends State<BookingSheet>
                                     ),
                                   ],
                                 ),
-                              ],
-                              const SizedBox(height: 12),
-                              Container(
-                                height: 1,
-                                color: AppColors.border,
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text('Total Amount',
-                                      style: TextStyle(
-                                          color: AppColors.textPrimary,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14)),
-                                  ShaderMask(
-                                    shaderCallback: (b) =>
-                                        AppColors.gradientPrimary.createShader(b),
-                                    child: Text(
-                                      '₹${_totalPrice.toStringAsFixed(0)}',
-                                      style: const TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w900,
-                                        color: Colors.white,
-                                        letterSpacing: -0.3,
+                                if (_quantity > 1) ...[
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text('× Quantity',
+                                          style: TextStyle(
+                                              color: AppColors.textMuted,
+                                              fontSize: 13)),
+                                      Text(
+                                        '× $_quantity',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textSecondary,
+                                        ),
                                       ),
-                                    ),
+                                    ],
                                   ),
                                 ],
-                              ),
-                            ],
+                                if (widget.event.gstEnabled) ...[
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                          'GST (${widget.event.gstPercentage.toStringAsFixed(0)}% ${widget.event.gstInclusive ? "Incl." : "Excl."})',
+                                          style: const TextStyle(
+                                              color: AppColors.textMuted,
+                                              fontSize: 13)),
+                                      Text(
+                                        '₹${(_gstAmount * _quantity).toStringAsFixed(0)}',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                                const SizedBox(height: 12),
+                                Container(
+                                  height: 1,
+                                  color: AppColors.border,
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                        _quantity > 1
+                                            ? 'Total ($_quantity passes)'
+                                            : 'Total Amount',
+                                        style: const TextStyle(
+                                            color: AppColors.textPrimary,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14)),
+                                    ShaderMask(
+                                      shaderCallback: (b) => AppColors
+                                          .gradientPrimary
+                                          .createShader(b),
+                                      child: Text(
+                                        '₹${_totalPrice.toStringAsFixed(0)}',
+                                        style: const TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w900,
+                                          color: Colors.white,
+                                          letterSpacing: -0.3,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-
-                      const SizedBox(height: 20),
-
-                      GradientButton(
-                        label: _selectedZone != null
-                            ? 'Pay ₹${_totalPrice.toStringAsFixed(0)}'
-                            : 'Select a Zone to Continue',
-                        icon: _selectedZone != null
-                            ? Icons.payment_rounded
-                            : null,
-                        isLoading: _isLoading,
-                        onPressed: _selectedZone != null && !_isLoading
-                            ? _purchase
-                            : null,
-                        gradient: AppColors.gradientNavratri,
-                      ),
-
-                      const SizedBox(height: 8),
-                      // Secure payment note
-                      const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.lock_outline_rounded,
-                              size: 12, color: AppColors.textMuted),
-                          SizedBox(width: 4),
-                          Text('Secured by Razorpay',
-                              style: TextStyle(
-                                  color: AppColors.textMuted, fontSize: 11)),
                         ],
-                      ),
+
+                        const SizedBox(height: 20),
+
+                        GradientButton(
+                          label: _selectedZone != null
+                              ? 'Pay ₹${_totalPrice.toStringAsFixed(0)}${_quantity > 1 ? ' for $_quantity passes' : ''}'
+                              : 'Select a Zone to Continue',
+                          icon: _selectedZone != null
+                              ? Icons.payment_rounded
+                              : null,
+                          isLoading: _isLoading,
+                          onPressed: _selectedZone != null && !_isLoading
+                              ? _purchase
+                              : null,
+                          gradient: AppColors.gradientNavratri,
+                        ),
+
+                        const SizedBox(height: 8),
+                        // Secure payment note
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.lock_outline_rounded,
+                                size: 12, color: AppColors.textMuted),
+                            SizedBox(width: 4),
+                            Text('Secured by Razorpay',
+                                style: TextStyle(
+                                    color: AppColors.textMuted, fontSize: 11)),
+                          ],
+                        ),
+                      ]
                     ],
                   ),
                 ),
@@ -718,6 +792,7 @@ class _BookingSheetState extends State<BookingSheet>
 
   Widget _zoneOption(ZoneModel zone, int index) {
     final isSelected = _selectedZone?.id == zone.id;
+    final isSoldOut = zone.availableSeats <= 0;
     final zoneColors = [
       AppColors.primary,
       AppColors.gold,
@@ -728,88 +803,340 @@ class _BookingSheetState extends State<BookingSheet>
     final zoneColor = zoneColors[index % zoneColors.length];
 
     return GestureDetector(
-      onTap: () => setState(() => _selectedZone = zone),
+      onTap: isSoldOut
+          ? null
+          : () => setState(() {
+                _selectedZone = zone;
+                _quantity = 1; // reset quantity on zone change
+              }),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color:
-              isSelected ? zoneColor.withOpacity(0.08) : AppColors.surfaceLight,
+          color: isSoldOut
+              ? AppColors.surfaceLight.withOpacity(0.4)
+              : isSelected
+                  ? zoneColor.withOpacity(0.08)
+                  : AppColors.surfaceLight,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-              color: isSelected ? zoneColor.withOpacity(0.6) : AppColors.border,
+              color: isSoldOut
+                  ? AppColors.border.withOpacity(0.5)
+                  : isSelected
+                      ? zoneColor.withOpacity(0.6)
+                      : AppColors.border,
               width: isSelected ? 1.5 : 1.0),
-          boxShadow: isSelected
+          boxShadow: isSelected && !isSoldOut
               ? [BoxShadow(color: zoneColor.withOpacity(0.15), blurRadius: 12)]
               : null,
         ),
-        child: Row(
-          children: [
-            // Zone color dot
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: zoneColor,
-                shape: BoxShape.circle,
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                            color: zoneColor.withOpacity(0.5), blurRadius: 6)
-                      ]
-                    : null,
+        child: Opacity(
+          opacity: isSoldOut ? 0.5 : 1.0,
+          child: Row(
+            children: [
+              // Zone color dot
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: isSoldOut ? AppColors.textMuted : zoneColor,
+                  shape: BoxShape.circle,
+                  boxShadow: isSelected && !isSoldOut
+                      ? [
+                          BoxShadow(
+                              color: zoneColor.withOpacity(0.5), blurRadius: 6)
+                        ]
+                      : null,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(zone.name,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: isSelected
-                              ? AppColors.textPrimary
-                              : AppColors.textSecondary,
-                          fontSize: 14)),
-                  Text(
-                      zone.features.isNotEmpty
-                          ? zone.features.first
-                          : '${zone.availableSeats} seats left',
-                      style: const TextStyle(
-                          color: AppColors.textMuted, fontSize: 11)),
-                ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(zone.name,
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: isSelected
+                                ? AppColors.textPrimary
+                                : AppColors.textSecondary,
+                            fontSize: 14)),
+                    Text(
+                        isSoldOut
+                            ? 'Sold Out'
+                            : zone.features.isNotEmpty
+                                ? zone.features.first
+                                : '${zone.availableSeats} seats left',
+                        style: TextStyle(
+                            color: isSoldOut
+                                ? AppColors.error
+                                : AppColors.textMuted,
+                            fontWeight:
+                                isSoldOut ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 11)),
+                  ],
+                ),
               ),
-            ),
-            // Price
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? zoneColor.withOpacity(0.12)
-                    : AppColors.surface,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                    color: isSelected
-                        ? zoneColor.withOpacity(0.4)
-                        : AppColors.border),
+              // Price
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: isSoldOut
+                      ? Colors.transparent
+                      : isSelected
+                          ? zoneColor.withOpacity(0.12)
+                          : AppColors.surface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: isSoldOut
+                          ? AppColors.border.withOpacity(0.5)
+                          : isSelected
+                              ? zoneColor.withOpacity(0.4)
+                              : AppColors.border),
+                ),
+                child: Text(
+                  isSoldOut ? 'Sold Out' : _zonePriceDisplay(zone),
+                  style: TextStyle(
+                      color: isSoldOut
+                          ? AppColors.textMuted
+                          : isSelected
+                              ? zoneColor
+                              : AppColors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14),
+                ),
               ),
-              child: Text(
-                _zonePriceDisplay(zone),
-                style: TextStyle(
-                    color: isSelected ? zoneColor : AppColors.textPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14),
-              ),
-            ),
-            if (isSelected) ...[
-              const SizedBox(width: 8),
-              Icon(Icons.check_circle_rounded, color: zoneColor, size: 20),
+              if (isSelected && !isSoldOut) ...[
+                const SizedBox(width: 8),
+                Icon(Icons.check_circle_rounded, color: zoneColor, size: 20),
+              ],
             ],
-          ],
+          ),
         ),
+      ),
+    );
+  }
+
+  // ── Quantity Stepper ─────────────────────────────────────────────────────
+  Widget _buildQuantityStepper() {
+    final maxQty = _effectiveMaxQty;
+    final isMultiple = _selectedZone?.isMultipleAllowed ?? true;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$_quantity ${_quantity == 1 ? 'pass' : 'passes'}',
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  !isMultiple
+                      ? 'Single pass purchase limit'
+                      : 'max $maxQty per order',
+                  style:
+                      const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          // Minus button
+          _stepperButton(
+            icon: Icons.remove_rounded,
+            enabled: isMultiple && _quantity > 1,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() => _quantity = (_quantity - 1).clamp(1, maxQty));
+            },
+          ),
+          // Count display
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 150),
+            transitionBuilder: (child, anim) =>
+                ScaleTransition(scale: anim, child: child),
+            child: Container(
+              key: ValueKey(_quantity),
+              width: 44,
+              alignment: Alignment.center,
+              child: Text(
+                '$_quantity',
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+          ),
+          // Plus button
+          _stepperButton(
+            icon: Icons.add_rounded,
+            enabled: isMultiple && _quantity < maxQty,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() => _quantity = (_quantity + 1).clamp(1, maxQty));
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stepperButton({
+    required IconData icon,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          gradient: enabled ? AppColors.gradientPrimary : null,
+          color: enabled ? null : AppColors.border,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(
+          icon,
+          color: enabled ? Colors.white : AppColors.textMuted,
+          size: 18,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVerificationPrompt(
+      BuildContext context, String status, String? reason) {
+    Color cardColor;
+    Color accentColor;
+    Gradient buttonGradient;
+    IconData icon;
+    String title;
+    String description;
+    String ctaLabel;
+
+    switch (status) {
+      case 'pending':
+        cardColor = AppColors.warning.withOpacity(0.06);
+        accentColor = AppColors.warning;
+        buttonGradient = const LinearGradient(
+          colors: [AppColors.warning, Color(0xFFFFB74D)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        icon = Icons.pending_actions_rounded;
+        title = 'Verification Pending';
+        description =
+            'Your identity verification is currently being reviewed by our team. This process normally takes less than 24 hours. Check back soon!';
+        ctaLabel = 'Check Status';
+        break;
+      case 'rejected':
+        cardColor = AppColors.error.withOpacity(0.06);
+        accentColor = AppColors.error;
+        buttonGradient = const LinearGradient(
+          colors: [AppColors.error, Color(0xFFE57373)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        icon = Icons.gpp_bad_rounded;
+        title = 'Verification Rejected';
+        description = reason != null && reason.trim().isNotEmpty
+            ? 'Your document verification was rejected:\n\n"$reason"\n\nPlease review your details and re-verify.'
+            : 'Your document verification was rejected. Please review your documents and try again.';
+        ctaLabel = 'Retry Verification';
+        break;
+      case 'none':
+      default:
+        cardColor = AppColors.gold.withOpacity(0.06);
+        accentColor = AppColors.gold;
+        buttonGradient = AppColors.gradientGold;
+        icon = Icons.verified_user_rounded;
+        title = 'Identity Verification Required';
+        description =
+            'To purchase a Season Pass, you need to verify your Aadhaar Card & Selfie. It takes only a minute!';
+        ctaLabel = 'Verify Identity Now';
+        break;
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: accentColor.withOpacity(0.25),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  color: accentColor,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            description,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 24),
+          GradientButton(
+            label: ctaLabel,
+            icon: Icons.chevron_right_rounded,
+            gradient: buttonGradient,
+            onPressed: () {
+              Navigator.pop(context); // Close the bottom sheet
+              Navigator.pushNamed(context, '/verification');
+            },
+          ),
+        ],
       ),
     );
   }

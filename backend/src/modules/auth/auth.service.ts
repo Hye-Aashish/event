@@ -61,6 +61,9 @@ export class AuthService {
 
     // Auto-register if new user
     let user = await this.userModel.findOne({ phoneNumber });
+    if (user && (user.status === 'deactivated' || user.status === 'banned' || user.status === 'deleted')) {
+      throw new UnauthorizedException('Your account has been deactivated or banned.');
+    }
     if (!user) {
       console.log(`🆕 Creating new user for ${phoneNumber}`);
       user = await this.userModel.create({ phoneNumber, deviceId });
@@ -134,5 +137,26 @@ export class AuthService {
     if (!user) throw new UnauthorizedException('User not found');
     console.log(`✅ Verification state set to: pending for user ${userId}`);
     return { success: true, user };
+  }
+
+  async deleteAccount(userId: string) {
+    const user = await this.userModel.findById(userId);
+    if (!user) throw new UnauthorizedException('User not found');
+
+    const timestamp = Date.now();
+    user.name = 'Deleted User';
+    user.email = '';
+    user.phoneNumber = `deleted_${timestamp}`;
+    user.status = 'deleted';
+    await user.save();
+
+    this.writeAuthLog({
+      userId,
+      phoneNumber: user.phoneNumber,
+      event: 'account_deleted',
+      role: user.role,
+    });
+
+    return { success: true, message: 'Account deleted successfully' };
   }
 }

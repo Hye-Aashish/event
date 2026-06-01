@@ -10,14 +10,43 @@ class TicketProvider extends ChangeNotifier {
   List<TicketModel> _tickets = [];
   bool _isLoading = false;
   String? _errorMessage;
+  int _maxTicketsPerOrder = 10;
 
   List<TicketModel> get tickets => _tickets;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  int get maxTicketsPerOrder => _maxTicketsPerOrder;
+
   List<TicketModel> get activeTickets =>
       _tickets.where((t) => t.status == 'active' && !t.isScanned).toList();
   List<TicketModel> get usedTickets =>
       _tickets.where((t) => t.isScanned || t.status != 'active').toList();
+
+  // ── Helper: get active tickets for a specific event+zone+type ────────────
+  List<TicketModel> getActiveTicketsForGroup(
+      String eventId, String zoneId, String type) {
+    return _tickets
+        .where((t) =>
+            t.status == 'active' &&
+            !t.isScanned &&
+            t.eventId == eventId &&
+            t.zoneId == zoneId &&
+            t.type == type)
+        .toList();
+  }
+
+  // ── Fetch max tickets per order from settings ────────────────────────────
+  Future<void> fetchMaxTicketsPerOrder() async {
+    try {
+      final res = await ApiService.getMaxTicketsPerOrder();
+      if (res['success'] == true && res['maxTicketsPerOrder'] != null) {
+        _maxTicketsPerOrder = (res['maxTicketsPerOrder'] as num).toInt();
+        notifyListeners();
+      }
+    } catch (_) {
+      // Keep default of 10 on error
+    }
+  }
 
   Future<void> fetchTickets() async {
     _isLoading = true;
@@ -42,7 +71,7 @@ class TicketProvider extends ChangeNotifier {
             .map((t) => TicketModel.fromJson(t as Map<String, dynamic>))
             .toList();
         _tickets.sort((a, b) => b.purchasedAt.compareTo(a.purchasedAt));
-        
+
         // Cache tickets to database on successful network fetch
         if (_tickets.isNotEmpty) {
           await DatabaseHelper.instance.saveTickets(_tickets);
@@ -103,7 +132,6 @@ class TicketProvider extends ChangeNotifier {
       _errorMessage = 'Failed to create order. Try again.';
       notifyListeners();
       return {'success': false, 'message': e.toString()};
-      
     }
   }
 
@@ -114,7 +142,6 @@ class TicketProvider extends ChangeNotifier {
     try {
       final res = await ApiService.verifyPayment(data);
       if (res['success'] == true) {
-        // Ticket book ho gaya, list refresh karo
         await fetchTickets();
         _isLoading = false;
         notifyListeners();
@@ -136,17 +163,51 @@ class TicketProvider extends ChangeNotifier {
     }
   }
 
-  Future<Map<String, dynamic>> transferTicket(
-      String ticketId, String toPhone) async {
+  // ── Transfer Step 1: Initiate — send OTP to sender's phone ───────────────
+  Future<Map<String, dynamic>> initiateTransfer({
+    required String ticketId,
+    required int quantity,
+    required String toPhone,
+  }) async {
     try {
-      final res = await ApiService.transferTicket(ticketId, toPhone);
+      final res = await ApiService.initiateTransfer({
+        'ticketId': ticketId,
+        'quantity': quantity,
+        'toPhone': toPhone,
+      });
+      return res;
+    } catch (e) {
+      return {'success': false, 'message': 'Failed to initiate transfer'};
+    }
+  }
+
+  // ── Transfer Step 2: Confirm — validate OTP and execute transfer ─────────
+  Future<Map<String, dynamic>> confirmTransfer({
+    required String ticketId,
+    required int quantity,
+    required String toPhone,
+    required String otp,
+  }) async {
+    try {
+      final res = await ApiService.confirmTransfer({
+        'ticketId': ticketId,
+        'quantity': quantity,
+        'toPhone': toPhone,
+        'otp': otp,
+      });
       if (res['success'] == true) {
         await fetchTickets();
       }
       return res;
     } catch (e) {
-      return {'success': false, 'message': 'Transfer failed'};
+      return {'success': false, 'message': 'Transfer confirmation failed'};
     }
+  }
+
+  // ── Legacy single-ticket transfer (kept for any remaining references) ─────
+  Future<Map<String, dynamic>> transferTicket(
+      String ticketId, String toPhone) async {
+    return initiateTransfer(ticketId: ticketId, quantity: 1, toPhone: toPhone);
   }
 
   TicketModel? getTicketById(String id) {

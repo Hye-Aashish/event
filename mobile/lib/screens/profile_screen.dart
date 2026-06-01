@@ -316,6 +316,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ]),
                                     onTap: () => _confirmLogout(context, auth),
                                   ),
+                                  const SizedBox(height: 10),
+                                  _menuTile(
+                                    context,
+                                    icon: Icons.delete_forever_rounded,
+                                    title: 'Delete Account',
+                                    subtitle: 'Permanently delete your profile',
+                                    color: AppColors.error,
+                                    gradient: const LinearGradient(colors: [
+                                      AppColors.error,
+                                      Color(0xFFEF5350)
+                                    ]),
+                                    onTap: () => _confirmDeleteAccount(context, auth),
+                                  ),
                                 ],
                               ),
                       ),
@@ -479,6 +492,80 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 }
               },
               child: const Text('Logout',
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteAccount(BuildContext context, AuthProvider auth) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Delete Account?',
+            style: TextStyle(
+                color: AppColors.error,
+                fontWeight: FontWeight.bold,
+                letterSpacing: -0.3)),
+        content: const Text(
+            'Warning: Deleting your account will permanently clear your profile details. This action cannot be undone. Are you sure you want to proceed?',
+            style: TextStyle(color: AppColors.textMuted)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.textPrimary)),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                  colors: [AppColors.error, Color(0xFFEF5350)]),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: TextButton(
+              onPressed: () async {
+                Navigator.pop(context); // close dialog
+                
+                // Show loading indicator
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) => const Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.primary,
+                    ),
+                  ),
+                );
+
+                final res = await auth.deleteAccount();
+                
+                if (context.mounted) {
+                  Navigator.pop(context); // close loading indicator
+                  if (res['success'] == true) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Account deleted successfully.'),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                    Navigator.pushNamedAndRemoveUntil(
+                        context, '/login', (_) => false);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(res['message'] ?? 'Failed to delete account'),
+                        backgroundColor: AppColors.error,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Delete',
                   style: TextStyle(
                       color: Colors.white, fontWeight: FontWeight.bold)),
             ),

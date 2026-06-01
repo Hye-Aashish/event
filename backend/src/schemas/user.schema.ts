@@ -15,6 +15,9 @@ export class User extends Document {
   @Prop({ default: 'user', enum: ['user', 'admin', 'scanner', 'zone_manager'] })
   role: string;
 
+  @Prop({ default: 'active', enum: ['active', 'deactivated', 'banned', 'deleted'] })
+  status: string;
+
   @Prop({ default: false })
   isVerified: boolean;
 

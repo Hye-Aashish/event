@@ -117,11 +117,17 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin {
   }
 
   void _triggerError() {
-    setState(() => _hasError = true);
+    if (mounted) {
+      setState(() => _hasError = true);
+    }
     _shakeController.forward(from: 0);
     HapticFeedback.heavyImpact();
     Future.delayed(
-        const Duration(seconds: 1), () => setState(() => _hasError = false));
+        const Duration(seconds: 1), () {
+          if (mounted) {
+            setState(() => _hasError = false);
+          }
+        });
   }
 
   void _showError(String msg) {

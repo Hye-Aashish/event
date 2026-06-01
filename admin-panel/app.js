@@ -308,6 +308,23 @@ async function loadZones() {
   } catch { tb.innerHTML = '<tr><td colspan="6" class="loading">Failed to load</td></tr>'; }
 }
 
+function openZoneModal(reset = true) {
+  if (reset) {
+    document.getElementById('editZoneId').value = '';
+    document.getElementById('zoneName').value = '';
+    document.getElementById('zoneEventId').value = '';
+    document.getElementById('zoneCapacity').value = '';
+    document.getElementById('zoneDailyPrice').value = '';
+    document.getElementById('zoneSeasonPrice').value = '';
+    document.getElementById('zoneType').value = 'daily';
+    document.getElementById('zoneColor').value = '#FF0080';
+    document.getElementById('zoneAutoVerify').value = 'false';
+    document.getElementById('zoneIsMultipleAllowed').value = 'true';
+    document.getElementById('zoneCategories').value = '';
+  }
+  openModal('zoneModal');
+}
+
 async function saveZone() {
   const body = {
     name: document.getElementById('zoneName').value,
@@ -319,6 +336,7 @@ async function saveZone() {
     type: document.getElementById('zoneType').value,
     color: document.getElementById('zoneColor').value,
     autoVerifySeasonPass: document.getElementById('zoneAutoVerify').value === 'true',
+    isMultipleAllowed: document.getElementById('zoneIsMultipleAllowed').value === 'true',
     allowedTicketCategories: document.getElementById('zoneCategories').value.split(',').map(c => c.trim()).filter(Boolean),
   };
   const id = document.getElementById('editZoneId').value;
@@ -349,6 +367,7 @@ async function editZone(id) {
     document.getElementById('zoneType').value = z.type || 'daily';
     document.getElementById('zoneColor').value = z.color || '#FF0080';
     document.getElementById('zoneAutoVerify').value = String(z.autoVerifySeasonPass);
+    document.getElementById('zoneIsMultipleAllowed').value = z.isMultipleAllowed !== false ? 'true' : 'false';
     document.getElementById('zoneCategories').value = (z.allowedTicketCategories || []).join(',');
     openModal('zoneModal');
   } catch { }
@@ -370,29 +389,8 @@ async function loadTickets() {
 
     const tickets = await apiFetch(`/tickets/all?${params.toString()}`);
     allTickets = tickets;
-    if (!tickets.length) {
-      tb.innerHTML = '<tr><td colspan="9" class="loading">No tickets found</td></tr>'; return;
-    }
-    tb.innerHTML = tickets.map(t => `
-      <tr>
-        <td style="font-family:monospace;font-size:11px;color:var(--muted)">${String(t._id).slice(-8)}</td>
-        <td>${t.currentOwner?.phoneNumber || t.userId?.phoneNumber || t.currentOwner || t.userId || '—'}</td>
-        <td>${t.eventId?.name || '—'}</td>
-        <td>${badge(t.type)}</td>
-        <td>${t.category}</td>
-        <td>${badge(t.status)}</td>
-        <td>${t.type === 'season' ? badge(t.verificationStatus || 'pending') : '—'}</td>
-        <td>
-          <strong>₹${t.totalAmount || 0}</strong>
-          ${t.basePrice || t.gstAmount ? `<br><small style="color:var(--muted);font-size:10px;display:block;margin-top:2px">Base: ₹${t.basePrice || 0} | GST: ₹${t.gstAmount || 0}</small>` : ''}
-        </td>
-        <td>
-          ${t.type === 'season' && t.verificationStatus !== 'approved'
-        ? `<button class="btn btn-sm btn-success" onclick="verifyTicketAction('${t._id}')">Verify</button>`
-        : '—'}
-        </td>
-      </tr>`).join('');
-  } catch { tb.innerHTML = '<tr><td colspan="9" class="loading">Failed to load</td></tr>'; }
+    renderTicketTable(tickets);
+  } catch { tb.innerHTML = '<tr><td colspan="11" class="loading">Failed to load</td></tr>'; }
 }
 
 async function verifyTicketAction(ticketId) {
@@ -481,20 +479,60 @@ async function suspendSponsor(id) {
 async function loadScanLogs() {
   const eventId = document.getElementById('scanEventFilter').value;
   const tb = document.getElementById('scanLogsTable');
-  if (!eventId) { tb.innerHTML = '<tr><td colspan="5" class="loading">Select an event</td></tr>'; return; }
-  tb.innerHTML = '<tr><td colspan="5" class="loading">Loading...</td></tr>';
+  tb.innerHTML = '<tr><td colspan="7" class="loading">Loading logs...</td></tr>';
   try {
-    const logs = await apiFetch(`/gate/logs/${eventId}`);
-    if (!logs.length) { tb.innerHTML = '<tr><td colspan="5" class="loading">No scan logs</td></tr>'; return; }
-    tb.innerHTML = logs.map(l => `
-      <tr>
-        <td style="font-size:12px">${fmt(l.createdAt)}</td>
-        <td style="font-family:monospace;font-size:11px">${String(l.ticketId).slice(-8)}</td>
-        <td>${badge(l.status)}</td>
-        <td>${l.zoneId?.name || '—'}</td>
-        <td style="color:var(--muted);font-size:12px">${l.message || ''}</td>
-      </tr>`).join('');
-  } catch { tb.innerHTML = '<tr><td colspan="5" class="loading">Failed to load</td></tr>'; }
+    const params = new URLSearchParams();
+    params.append('type', 'scan');
+    if (eventId) {
+      params.append('eventId', eventId);
+    }
+    const logs = await apiFetch(`/admin/logs?${params.toString()}`);
+    if (!logs.length) {
+      tb.innerHTML = '<tr><td colspan="7" class="loading">No scan logs found</td></tr>';
+      return;
+    }
+    tb.innerHTML = logs.map(l => {
+      const ownerName = l.ticketId?.userId?.name || '—';
+      const ownerPhone = l.ticketId?.userId?.phoneNumber || '—';
+
+      let scannerName = '—';
+      let scannerPhone = '—';
+      if (l.scannerId) {
+        if (typeof l.scannerId === 'object') {
+          scannerName = l.scannerId.name || 'Scanner';
+          scannerPhone = l.scannerId.phoneNumber || '—';
+        } else if (typeof l.scannerId === 'string') {
+          const foundUser = allUsers.find(u => u._id === l.scannerId);
+          if (foundUser) {
+            scannerName = foundUser.name || 'Scanner';
+            scannerPhone = foundUser.phoneNumber || '—';
+          } else {
+            scannerName = 'Scanner (' + l.scannerId.slice(-4) + ')';
+          }
+        }
+      }
+
+      return `
+        <tr>
+          <td>${fmt(l.createdAt)}</td>
+          <td>
+            <strong>${ownerName}</strong><br>
+            <small style="color:var(--muted)">${ownerPhone}</small>
+          </td>
+          <td>
+            <strong>${scannerName}</strong><br>
+            <small style="color:var(--muted)">${scannerPhone}</small>
+          </td>
+          <td>${badge(l.status)}</td>
+          <td>${l.zoneId?.name || '—'}</td>
+          <td>${l.eventId?.name || '—'}</td>
+          <td style="color:var(--muted);font-size:12px">${l.message || '—'}</td>
+        </tr>
+      `;
+    }).join('');
+  } catch (e) {
+    tb.innerHTML = `<tr><td colspan="7" class="loading" style="color:var(--error)">Failed to load logs: ${e.message}</td></tr>`;
+  }
 }
 
 // ── Verifications ────────────────────────────────────────────────
@@ -572,6 +610,7 @@ async function loadSettings() {
       document.getElementById('setRazorpayKeyId').value = s.razorpayKeyId || '';
       document.getElementById('setRazorpayKeySecret').value = s.razorpayKeySecret || '';
       document.getElementById('setDefaultGst').value = s.defaultGstPercentage || 18;
+      document.getElementById('setMaxTicketsPerOrder').value = s.maxTicketsPerOrder || 10;
     } else {
       console.warn('Settings not found on server');
     }
@@ -586,6 +625,7 @@ async function saveSettings() {
     razorpayKeyId: document.getElementById('setRazorpayKeyId').value,
     razorpayKeySecret: document.getElementById('setRazorpayKeySecret').value,
     defaultGstPercentage: Number(document.getElementById('setDefaultGst').value),
+    maxTicketsPerOrder: Number(document.getElementById('setMaxTicketsPerOrder').value) || 10,
   };
   await updateSettings(body);
 }
@@ -720,25 +760,42 @@ function renderUserTable(users) {
 
 function renderTicketTable(tickets) {
   const tb = document.getElementById('ticketsTable');
-  tb.innerHTML = tickets.map(t => `
-    <tr>
-      <td style="font-family:monospace;font-size:11px;color:var(--muted)">${String(t._id).slice(-8)}</td>
-      <td>${t.currentOwner?.phoneNumber || t.userId?.phoneNumber || t.currentOwner || t.userId || '—'}</td>
-      <td>${t.eventId?.name || '—'}</td>
-      <td>${badge(t.type)}</td>
-      <td>${t.category}</td>
-      <td>${badge(t.status)}</td>
-      <td>${t.type === 'season' ? badge(t.verificationStatus || 'pending') : '—'}</td>
-      <td>
-        <strong>₹${t.totalAmount || 0}</strong>
-        ${t.basePrice || t.gstAmount ? `<br><small style="color:var(--muted);font-size:10px;display:block;margin-top:2px">Base: ₹${t.basePrice || 0} | GST: ₹${t.gstAmount || 0}</small>` : ''}
-      </td>
-      <td>
-        ${t.type === 'season' && t.verificationStatus !== 'approved'
-      ? `<button class="btn btn-sm btn-success" onclick="verifyTicketAction('${t._id}')">Verify</button>`
-      : '—'}
-      </td>
-    </tr>`).join('');
+
+  if (!tickets.length) {
+    tb.innerHTML = '<tr><td colspan="11" class="loading">No tickets found</td></tr>';
+    return;
+  }
+
+  tb.innerHTML = tickets.map(t => {
+    const qty = t.quantity || 1;
+    const needsVerification = t.type === 'season' && t.verificationStatus !== 'approved';
+
+    return `
+      <tr>
+        <td style="font-family:monospace;font-size:11px;color:var(--muted)">
+          ${String(t._id).slice(-8)}
+        </td>
+        <td>${t.currentOwner?.phoneNumber || t.userId?.phoneNumber || t.currentOwner || t.userId || '—'}</td>
+        <td>${t.eventId?.name || '—'}</td>
+        <td>${t.zoneId?.name || '—'}</td>
+        <td>${badge(t.type)}</td>
+        <td>${t.category}</td>
+        <td>${badge(t.status)}</td>
+        <td>${t.type === 'season' ? badge(t.verificationStatus || 'pending') : '—'}</td>
+        <td>
+          <span class="badge ${qty > 1 ? 'badge-info' : 'badge-muted'}">${qty}x</span>
+        </td>
+        <td>
+          <strong>₹${t.totalAmount || 0}</strong>
+          ${t.basePrice || t.gstAmount ? `<br><small style="color:var(--muted);font-size:10px;display:block;margin-top:2px">Base: ₹${t.basePrice || 0} | GST: ₹${t.gstAmount || 0}</small>` : ''}
+        </td>
+        <td>
+          ${needsVerification
+        ? `<button class="btn btn-sm btn-success" onclick="verifyTicketAction('${t._id}')">Verify</button>`
+        : '—'}
+        </td>
+      </tr>`;
+  }).join('');
 }
 
 // ── API Health Check ─────────────────────────────────────────────
@@ -863,7 +920,7 @@ function switchLogTab(tab) {
   currentLogTab = tab;
   document.querySelectorAll('#logTabBar .tab-btn').forEach(btn => btn.classList.remove('active'));
   document.getElementById(`logTab-${tab}`).classList.add('active');
-  
+
   // Update table headers based on tab
   const head = document.getElementById('logsTableHead').querySelector('tr');
   if (tab === 'scan') {
@@ -879,11 +936,22 @@ function switchLogTab(tab) {
   } else if (tab === 'transfer') {
     head.innerHTML = `
       <th>Time</th>
-      <th>Ticket ID</th>
+      <th>Passes (Qty)</th>
       <th>From User</th>
       <th>To User</th>
-      <th>Category</th>
+      <th>Event · Zone</th>
       <th>Type</th>
+      <th>OTP Verified</th>
+    `;
+  } else if (tab === 'purchase') {
+    head.innerHTML = `
+      <th>Time</th>
+      <th>User</th>
+      <th>Event · Zone</th>
+      <th>Type</th>
+      <th>Qty</th>
+      <th>Total Amount</th>
+      <th>Status</th>
     `;
   } else if (tab === 'admin') {
     head.innerHTML = `
@@ -903,7 +971,7 @@ function switchLogTab(tab) {
       <th>Device</th>
     `;
   }
-  
+
   loadCurrentLogTab();
 }
 
@@ -922,36 +990,96 @@ async function loadCurrentLogTab() {
   const tb = document.getElementById('logsTableBody');
   if (!tb) return;
   tb.innerHTML = '<tr><td colspan="6" class="loading">Loading logs...</td></tr>';
-  
+
   const userFilterText = document.getElementById('logUserFilter').value;
   const role = document.getElementById('logRoleFilter').value;
   const dateFrom = document.getElementById('logDateFrom').value;
   const dateTo = document.getElementById('logDateTo').value;
-  
+
   let userId = '';
   if (userFilterText) {
     userId = resolveUserIdFilter(userFilterText);
   }
-  
+
+  if (currentLogTab === 'purchase') {
+    // Show tickets grouped by razorpayOrderId as purchase events
+    try {
+      const allTickets = await apiFetch('/tickets/all');
+
+      // Group by order
+      const orderMap = {};
+      allTickets.forEach(t => {
+        const key = t.razorpayOrderId || t._id;
+        if (!orderMap[key]) {
+          orderMap[key] = { ...t, qty: 0, totalAmt: 0 };
+        }
+        orderMap[key].qty += t.quantity || 1;
+        orderMap[key].totalAmt += t.totalAmount || 0;
+      });
+
+      let orders = Object.values(orderMap);
+
+      // Apply client-side filters (User, Dates)
+      if (userId) {
+        orders = orders.filter(o => {
+          const ownerId = o.currentOwner?._id || o.currentOwner || o.userId?._id || o.userId;
+          return ownerId === userId;
+        });
+      }
+      if (dateFrom) {
+        const fromTime = new Date(dateFrom).getTime();
+        orders = orders.filter(o => new Date(o.createdAt).getTime() >= fromTime);
+      }
+      if (dateTo) {
+        const toTime = new Date(dateTo + 'T23:59:59Z').getTime();
+        orders = orders.filter(o => new Date(o.createdAt).getTime() <= toTime);
+      }
+
+      orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      if (!orders.length) {
+        tb.innerHTML = `<tr><td colspan="7" class="loading">No purchases found matching filters</td></tr>`;
+        return;
+      }
+
+      tb.innerHTML = orders.map(o => `
+        <tr>
+          <td>${fmt(o.createdAt)}</td>
+          <td>
+            <strong>${o.currentOwner?.name || o.userId?.name || '—'}</strong><br>
+            <small style="color:var(--muted)">${o.currentOwner?.phoneNumber || o.userId?.phoneNumber || '—'}</small>
+          </td>
+          <td style="font-size:12px">${o.eventId?.name || '—'} · ${o.zoneId?.name || '—'}</td>
+          <td>${badge(o.type)}</td>
+          <td><span class="badge ${o.qty > 1 ? 'badge-info' : 'badge-muted'}">${o.qty}x</span></td>
+          <td><strong>₹${o.totalAmt}</strong></td>
+          <td>${badge(o.status)}</td>
+        </tr>`).join('');
+    } catch (e) {
+      tb.innerHTML = `<tr><td colspan="7" class="loading" style="color:var(--error)">Failed to load purchases: ${e.message}</td></tr>`;
+    }
+    return;
+  }
+
   const params = new URLSearchParams();
   params.append('type', currentLogTab);
   if (userId) params.append('userId', userId);
   if (role) params.append('role', role);
   if (dateFrom) params.append('dateFrom', dateFrom);
   if (dateTo) params.append('dateTo', dateTo);
-  
+
   try {
     const logs = await apiFetch(`/admin/logs?${params.toString()}`);
     if (!logs.length) {
       tb.innerHTML = `<tr><td colspan="7" class="loading">No logs found matching filters</td></tr>`;
       return;
     }
-    
+
     if (currentLogTab === 'scan') {
       tb.innerHTML = logs.map(l => {
         const ownerName = l.ticketId?.userId?.name || '—';
         const ownerPhone = l.ticketId?.userId?.phoneNumber || '—';
-        
+
         let scannerName = '—';
         let scannerPhone = '—';
         if (l.scannerId) {
@@ -968,7 +1096,7 @@ async function loadCurrentLogTab() {
             }
           }
         }
-        
+
         return `
           <tr>
             <td>${fmt(l.createdAt)}</td>
@@ -988,22 +1116,32 @@ async function loadCurrentLogTab() {
         `;
       }).join('');
     } else if (currentLogTab === 'transfer') {
-      tb.innerHTML = logs.map(l => `
-        <tr>
-          <td>${fmt(l.createdAt)}</td>
-          <td style="font-family:monospace;font-size:11px">${String(l.ticketId?._id || l.ticketId).slice(-8)}</td>
-          <td>
-            <strong>${l.fromUserId?.name || '—'}</strong><br>
-            <small style="color:var(--muted)">${l.fromUserId?.phoneNumber || '—'}</small>
-          </td>
-          <td>
-            <strong>${l.toUserId?.name || '—'}</strong><br>
-            <small style="color:var(--muted)">${l.toUserId?.phoneNumber || '—'}</small>
-          </td>
-          <td>${l.ticketId?.category || '—'}</td>
-          <td>${badge(l.ticketId?.type || '—')}</td>
-        </tr>
-      `).join('');
+      tb.innerHTML = logs.map(l => {
+        const qty = l.metadata?.quantity || 1;
+        const isBatch = qty > 1;
+        const otpVerified = l.metadata?.otpVerified !== false;
+        return `
+          <tr>
+            <td>${fmt(l.createdAt)}</td>
+            <td>
+              ${isBatch
+            ? `<span class="badge badge-info">${qty} Passes (batch)</span>`
+            : `<span class="badge badge-muted">1 Pass</span>`}
+            </td>
+            <td>
+              <strong>${l.fromUserId?.name || '—'}</strong><br>
+              <small style="color:var(--muted)">${l.fromUserId?.phoneNumber || '—'}</small>
+            </td>
+            <td>
+              <strong>${l.toUserId?.name || '—'}</strong><br>
+              <small style="color:var(--muted)">${l.toUserId?.phoneNumber || l.toPhone || '—'}</small>
+            </td>
+            <td style="font-size:12px">${l.ticketId?.eventId?.name || '—'} · ${l.ticketId?.zoneId?.name || l.ticketId?.category || '—'}</td>
+            <td>${badge(l.ticketId?.type || '—')}</td>
+            <td>${otpVerified ? '<span class="badge badge-success">Yes</span>' : '<span class="badge badge-muted">No</span>'}</td>
+          </tr>
+        `;
+      }).join('');
     } else if (currentLogTab === 'admin') {
       tb.innerHTML = logs.map(l => `
         <tr>
@@ -1089,7 +1227,7 @@ async function loadScanners() {
       grid.innerHTML = '<div class="loading">No scanners found</div>';
       return;
     }
-    
+
     const cardsHtml = await Promise.all(scanners.map(async s => {
       let stats = { total: 0, success: 0, duplicate: 0, fraud: 0, invalid_sig: 0, time_invalid: 0 };
       try {
@@ -1098,9 +1236,9 @@ async function loadScanners() {
       } catch (err) {
         console.error('Error fetching analytics for scanner ' + s._id, err);
       }
-      
+
       const successRate = stats.total > 0 ? Math.round((stats.success / stats.total) * 100) : 0;
-      
+
       return `
         <div class="scanner-card" onclick="openScannerDetail('${s._id}')">
           <div class="scanner-card-head">
@@ -1131,7 +1269,7 @@ async function loadScanners() {
         </div>
       `;
     }));
-    
+
     grid.innerHTML = cardsHtml.join('');
   } catch (e) {
     grid.innerHTML = '<div class="loading">Failed to load scanners</div>';
@@ -1146,23 +1284,23 @@ async function openUserDetail(userId) {
   const nameEl = document.getElementById('userDetailName');
   const metaEl = document.getElementById('userDetailMeta');
   const bodyEl = document.getElementById('userDetailBody');
-  
+
   if (user) {
     nameEl.textContent = user.name || 'User Detail';
     metaEl.textContent = `${user.phoneNumber} · Role: ${user.role.toUpperCase()}`;
   }
-  
+
   bodyEl.innerHTML = '<div class="loading">Loading analytics & history...</div>';
   overlay.classList.add('open');
-  
+
   try {
     if (user && (user.role === 'scanner' || user.role === 'zone_manager')) {
       const data = await apiFetch(`/admin/analytics/scanner/${userId}`);
       currentUserDetailData = { role: user.role, user, ...data };
-      
+
       const sum = data.summary;
       const successRate = sum.total > 0 ? Math.round((sum.success / sum.total) * 100) : 0;
-      
+
       bodyEl.innerHTML = `
         <div class="profile-info-row">
           <div class="profile-avatar">📲</div>
@@ -1175,6 +1313,8 @@ async function openUserDetail(userId) {
             </div>
           </div>
         </div>
+        
+        ${renderAdminManagementCard(user)}
         
         <div class="analytics-grid">
           <div class="analytics-card pink-glow">
@@ -1213,9 +1353,9 @@ async function openUserDetail(userId) {
         apiFetch(`/admin/logs?type=admin&userId=${userId}`),
         apiFetch(`/admin/logs?type=auth&userId=${userId}`),
       ]);
-      
+
       currentUserDetailData = { role: 'admin', user, adminLogs, authLogs };
-      
+
       bodyEl.innerHTML = `
         <div class="profile-info-row">
           <div class="profile-avatar">🛡️</div>
@@ -1254,9 +1394,9 @@ async function openUserDetail(userId) {
     } else {
       const data = await apiFetch(`/admin/analytics/user/${userId}`);
       currentUserDetailData = { role: 'user', user, ...data };
-      
+
       const sum = data.summary;
-      
+
       bodyEl.innerHTML = `
         <div class="profile-info-row">
           <div class="profile-avatar">👤</div>
@@ -1270,6 +1410,8 @@ async function openUserDetail(userId) {
             </div>
           </div>
         </div>
+        
+        ${renderAdminManagementCard(user)}
         
         <div class="analytics-grid">
           <div class="analytics-card pink-glow">
@@ -1312,14 +1454,14 @@ async function openUserDetail(userId) {
 
 function switchUserDetailTab(tab) {
   if (!currentUserDetailData) return;
-  
+
   document.querySelectorAll('#userDetailBody .tab-btn').forEach(btn => btn.classList.remove('active'));
   const activeBtn = document.getElementById(`udTabBtn-${tab}`);
   if (activeBtn) activeBtn.classList.add('active');
-  
+
   const contentEl = document.getElementById('udTabContent');
   if (!contentEl) return;
-  
+
   if (tab === 'tickets') {
     contentEl.innerHTML = renderUserDetailTicketsHtml(currentUserDetailData.currentTickets);
   } else if (tab === 'transfers') {
@@ -1335,6 +1477,7 @@ function switchUserDetailTab(tab) {
 
 function renderUserDetailTicketsHtml(tickets) {
   if (!tickets.length) return '<div class="loading">No tickets held currently</div>';
+
   return `
     <div class="table-wrap">
       <table class="data-table">
@@ -1344,21 +1487,26 @@ function renderUserDetailTicketsHtml(tickets) {
             <th>Event</th>
             <th>Category</th>
             <th>Type</th>
+            <th>Qty</th>
             <th>Status</th>
             <th>Scanned?</th>
           </tr>
         </thead>
         <tbody>
-          ${tickets.map(t => `
-            <tr>
-              <td style="font-family:monospace;font-size:11px">${String(t._id).slice(-8)}</td>
-              <td>${t.eventId?.name || '—'}</td>
-              <td>${t.category}</td>
-              <td>${badge(t.type)}</td>
-              <td>${badge(t.status)}</td>
-              <td>${t.isScanned ? '<span class="badge badge-success">Yes</span>' : '<span class="badge badge-muted">No</span>'}</td>
-            </tr>
-          `).join('')}
+          ${tickets.map(t => {
+    const qty = t.quantity || 1;
+    return `
+              <tr>
+                <td style="font-family:monospace;font-size:11px">${String(t._id).slice(-8)}</td>
+                <td>${t.eventId?.name || '—'}</td>
+                <td>${t.category}</td>
+                <td>${badge(t.type)}</td>
+                <td><span class="badge ${qty > 1 ? 'badge-info' : 'badge-muted'}">${qty}x</span></td>
+                <td>${badge(t.status)}</td>
+                <td>${t.isScanned ? '<span class="badge badge-success">Yes</span>' : '<span class="badge badge-muted">No</span>'}</td>
+              </tr>
+            `;
+  }).join('')}
         </tbody>
       </table>
     </div>
@@ -1367,7 +1515,7 @@ function renderUserDetailTicketsHtml(tickets) {
 
 function renderUserDetailTransfersHtml(outTransfers, inTransfers) {
   if (!outTransfers.length && !inTransfers.length) return '<div class="loading">No transfers recorded</div>';
-  
+
   let html = '';
   if (outTransfers.length) {
     html += `
@@ -1377,26 +1525,38 @@ function renderUserDetailTransfersHtml(outTransfers, inTransfers) {
           <thead>
             <tr>
               <th>Time</th>
-              <th>Ticket ID</th>
+              <th>Passes</th>
+              <th>Event · Zone</th>
               <th>Sent To</th>
-              <th>Category</th>
+              <th>Type</th>
+              <th>OTP</th>
             </tr>
           </thead>
           <tbody>
-            ${outTransfers.map(tr => `
+            ${outTransfers.map(tr => {
+      const qty = tr.metadata?.quantity || 1;
+      const otpOk = tr.metadata?.otpVerified !== false;
+      return `
               <tr>
                 <td>${fmt(tr.createdAt)}</td>
-                <td style="font-family:monospace;font-size:11px">${String(tr.ticketId?._id || tr.ticketId).slice(-8)}</td>
-                <td>${tr.toUserId?.name || '—'} (${tr.toUserId?.phoneNumber || '—'})</td>
-                <td>${tr.ticketId?.category || '—'}</td>
+                <td>
+                  ${qty > 1
+          ? `<span class="badge badge-info">${qty}x</span>`
+          : `<span class="badge badge-muted">1x</span>`}
+                </td>
+                <td style="font-size:12px">${tr.ticketId?.eventId?.name || '—'} · ${tr.ticketId?.zoneId?.name || tr.ticketId?.category || '—'}</td>
+                <td>${tr.toUserId?.name || '—'} <br><small style="color:var(--muted)">${tr.toUserId?.phoneNumber || tr.toPhone || '—'}</small></td>
+                <td>${badge(tr.ticketId?.type || '—')}</td>
+                <td>${otpOk ? '<span class="badge badge-success">✓</span>' : '<span class="badge badge-muted">—</span>'}</td>
               </tr>
-            `).join('')}
+              `;
+    }).join('')}
           </tbody>
         </table>
       </div>
     `;
   }
-  
+
   if (inTransfers.length) {
     html += `
       <h4 style="margin: 15px 0 10px 0; font-size: 13px; font-weight: 700; color: var(--green)">📥 Received</h4>
@@ -1405,26 +1565,35 @@ function renderUserDetailTransfersHtml(outTransfers, inTransfers) {
           <thead>
             <tr>
               <th>Time</th>
-              <th>Ticket ID</th>
+              <th>Passes</th>
+              <th>Event · Zone</th>
               <th>Received From</th>
-              <th>Category</th>
+              <th>Type</th>
             </tr>
           </thead>
           <tbody>
-            ${inTransfers.map(tr => `
+            ${inTransfers.map(tr => {
+      const qty = tr.metadata?.quantity || 1;
+      return `
               <tr>
                 <td>${fmt(tr.createdAt)}</td>
-                <td style="font-family:monospace;font-size:11px">${String(tr.ticketId?._id || tr.ticketId).slice(-8)}</td>
-                <td>${tr.fromUserId?.name || '—'} (${tr.fromUserId?.phoneNumber || '—'})</td>
-                <td>${tr.ticketId?.category || '—'}</td>
+                <td>
+                  ${qty > 1
+          ? `<span class="badge badge-info">${qty}x</span>`
+          : `<span class="badge badge-muted">1x</span>`}
+                </td>
+                <td style="font-size:12px">${tr.ticketId?.eventId?.name || '—'} · ${tr.ticketId?.zoneId?.name || tr.ticketId?.category || '—'}</td>
+                <td>${tr.fromUserId?.name || '—'} <br><small style="color:var(--muted)">${tr.fromUserId?.phoneNumber || '—'}</small></td>
+                <td>${badge(tr.ticketId?.type || '—')}</td>
               </tr>
-            `).join('')}
+              `;
+    }).join('')}
           </tbody>
         </table>
       </div>
     `;
   }
-  
+
   return html;
 }
 
@@ -1462,24 +1631,24 @@ async function openScannerDetail(scannerId) {
   const nameEl = document.getElementById('scannerDetailName');
   const metaEl = document.getElementById('scannerDetailMeta');
   const bodyEl = document.getElementById('scannerDetailBody');
-  
+
   nameEl.textContent = 'Scanner Detail';
   metaEl.textContent = 'Loading...';
   bodyEl.innerHTML = '<div class="loading">Loading analytics & history...</div>';
   overlay.classList.add('open');
-  
+
   try {
     const data = await apiFetch(`/admin/analytics/scanner/${scannerId}`);
     currentScannerDetailData = data;
-    
+
     const scannerUser = allUsers.find(u => u._id === scannerId) || (data.scanLogs[0]?.scannerId);
-    
+
     nameEl.textContent = scannerUser?.name || 'Scanner Detail';
     metaEl.textContent = `${scannerUser?.phoneNumber || ''} · Role: ${scannerUser?.role?.toUpperCase() || 'SCANNER'}`;
-    
+
     const sum = data.summary;
     const successRate = sum.total > 0 ? Math.round((sum.success / sum.total) * 100) : 0;
-    
+
     bodyEl.innerHTML = `
       <div class="profile-info-row">
         <div class="profile-avatar">📲</div>
@@ -1525,7 +1694,7 @@ async function openScannerDetail(scannerId) {
         ${renderScannerDetailScansHtml(data.scanLogs)}
       </div>
     `;
-    
+
   } catch (e) {
     bodyEl.innerHTML = `<div class="loading" style="color:var(--error)">Error loading scanner details: ${e.message}</div>`;
   }
@@ -1533,14 +1702,14 @@ async function openScannerDetail(scannerId) {
 
 function switchScannerDetailTab(tab) {
   if (!currentScannerDetailData) return;
-  
+
   document.querySelectorAll('#scannerDetailBody .tab-btn').forEach(btn => btn.classList.remove('active'));
   const activeBtn = document.getElementById(`sdTabBtn-${tab}`);
   if (activeBtn) activeBtn.classList.add('active');
-  
+
   const contentEl = document.getElementById('sdTabContent');
   if (!contentEl) return;
-  
+
   if (tab === 'scans') {
     contentEl.innerHTML = renderScannerDetailScansHtml(currentScannerDetailData.scanLogs);
   } else if (tab === 'auth') {
@@ -1565,9 +1734,9 @@ function renderScannerDetailScansHtml(scanLogs) {
         </thead>
         <tbody>
           ${scanLogs.map(log => {
-            const ownerName = log.ticketId?.userId?.name || '—';
-            const ownerPhone = log.ticketId?.userId?.phoneNumber || '—';
-            return `
+    const ownerName = log.ticketId?.userId?.name || '—';
+    const ownerPhone = log.ticketId?.userId?.phoneNumber || '—';
+    return `
               <tr>
                 <td>${fmt(log.createdAt)}</td>
                 <td style="font-family:monospace;font-size:11px">${String(log.ticketId?._id || log.ticketId).slice(-8)}</td>
@@ -1580,7 +1749,7 @@ function renderScannerDetailScansHtml(scanLogs) {
                 <td>${badge(log.status)}</td>
               </tr>
             `;
-          }).join('')}
+  }).join('')}
         </tbody>
       </table>
     </div>
@@ -1674,3 +1843,71 @@ window.addEventListener('DOMContentLoaded', () => {
     adminLogout();
   }
 });
+
+function renderAdminManagementCard(user) {
+  if (!user || user.role === 'admin') return '';
+  const currentStatus = user.status || 'active';
+  const isActive = currentStatus === 'active';
+  const isBanned = currentStatus === 'banned';
+  const isDeactivated = currentStatus === 'deactivated';
+  const isDeleted = currentStatus === 'deleted';
+
+  if (isDeleted) {
+    return `
+      <div class="admin-actions-card" style="background: rgba(255, 68, 68, 0.05); border: 1px solid rgba(255, 68, 68, 0.15); border-radius: 12px; padding: 16px; margin: 20px 0;">
+        <h4 style="margin:0 0 6px 0; font-size:13px; font-weight:700; color:#FF4444; letter-spacing:0.5px; text-transform:uppercase;">Account Deleted</h4>
+        <div style="font-size:12px; color:var(--text-muted)">This account has been anonymized and deleted. No further actions can be performed.</div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="admin-actions-card" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin: 20px 0;">
+      <h4 style="margin:0 0 12px 0; font-size:13px; font-weight:700; color:var(--text-muted); letter-spacing:0.5px; text-transform:uppercase;">Admin Management</h4>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        ${isActive
+      ? `<button class="btn btn-sm btn-outline" style="border-color:#FFA726; color:#FFA726; background:transparent;" onclick="updateUserStatus('${user._id}', 'deactivated')">⏸️ Deactivate</button>`
+      : `<button class="btn btn-sm btn-success" onclick="updateUserStatus('${user._id}', 'active')">▶️ Reactivate</button>`
+    }
+        ${!isBanned
+      ? `<button class="btn btn-sm btn-danger" style="background:#ef5350; color:#fff; border-color:#ef5350;" onclick="updateUserStatus('${user._id}', 'banned')">🚫 Ban User</button>`
+      : ''
+    }
+        <button class="btn btn-sm btn-danger btn-outline" style="border-color:#e53935; color:#e53935; background:transparent;" onclick="adminDeleteUser('${user._id}')">🗑️ Delete Account</button>
+      </div>
+      ${!isActive
+      ? `<div style="margin-top:10px; font-size:12px; color:#FFA726;">⚠️ Current Status: <strong>${currentStatus.toUpperCase()}</strong></div>`
+      : ''
+    }
+    </div>
+  `;
+}
+
+async function updateUserStatus(userId, status) {
+  if (!confirm(`Are you sure you want to change this user's status to ${status}?`)) return;
+  try {
+    await apiFetch(`/admin/users/${userId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status })
+    });
+    showToast(`✅ User status updated to ${status}!`);
+    closeModal('userDetailOverlay');
+    loadUsers();
+  } catch (e) {
+    showToast('❌ Failed to update status: ' + e.message, 'error');
+  }
+}
+
+async function adminDeleteUser(userId) {
+  if (!confirm("⚠️ WARNING: Deleting this account will permanently erase the user's name, email, and phone number from our system. This action is irreversible. Are you sure you want to delete this user?")) return;
+  try {
+    await apiFetch(`/admin/users/${userId}`, {
+      method: 'DELETE'
+    });
+    showToast('🗑️ User account deleted successfully!');
+    closeModal('userDetailOverlay');
+    loadUsers();
+  } catch (e) {
+    showToast('❌ Failed to delete user: ' + e.message, 'error');
+  }
+}

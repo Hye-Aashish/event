@@ -9,10 +9,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scanner_app/main.dart';
 
+import 'package:scanner_app/providers/auth_provider.dart';
+
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const ScannerApp());
+    await tester.pumpWidget(ScannerApp(authProvider: AuthProvider()));
 
     // Verify that our counter starts at 0.
     expect(find.text('0'), findsOneWidget);

@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Patch, Param, Body, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Put, Patch, Delete, Param, Body, Query, UseGuards, Request } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -28,6 +28,16 @@ export class AdminController {
     return this.adminService.updateUserRole(id, body.role, req.user.sub);
   }
 
+  @Patch('users/:id/status')
+  updateUserStatus(@Param('id') id: string, @Body() body: { status: string }, @Request() req) {
+    return this.adminService.updateUserStatus(id, body.status, req.user.sub);
+  }
+
+  @Delete('users/:id')
+  deleteUser(@Param('id') id: string, @Request() req) {
+    return this.adminService.deleteUserAccount(id, req.user.sub);
+  }
+
   // ── User Analytics ─────────────────────────────────────────────────────────
   @Get('analytics/user/:id')
   getUserAnalytics(@Param('id') id: string) {
@@ -51,8 +61,9 @@ export class AdminController {
     @Query('role') role?: string,
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
+    @Query('eventId') eventId?: string,
   ) {
-    return this.adminService.getLogs({ type, userId, role, dateFrom, dateTo });
+    return this.adminService.getLogs({ type, userId, role, dateFrom, dateTo, eventId } as any);
   }
 
   // ── Verifications ──────────────────────────────────────────────────────────

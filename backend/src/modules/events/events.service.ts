@@ -22,7 +22,8 @@ export class EventsService {
       _id: z._id.toString(),
       dailyPrice: dPrice,
       seasonPrice: sPrice,
-      availableSeats: z.availableSeats ?? z.available ?? 0
+      availableSeats: z.availableSeats ?? z.available ?? 0,
+      isMultipleAllowed: z.isMultipleAllowed !== false
     };
   }
 

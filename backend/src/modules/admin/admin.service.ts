@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { User } from '../../schemas/user.schema';
@@ -227,6 +227,7 @@ export class AdminService {
     dateFrom?: string;
     dateTo?: string;
     page?: number;
+    eventId?: string;
   }) {
     const limit = 200;
     const type = filters.type || 'scan';
@@ -237,9 +238,22 @@ export class AdminService {
     if (type === 'scan') {
       const q: any = {};
       if (filters.userId) {
+        try {
+          q.scannerId = new Types.ObjectId(filters.userId);
+        } catch (err) {
+          q.scannerId = filters.userId;
+        }
+      }
+      if (filters.eventId) {
+        let eventObjId;
+        try {
+          eventObjId = new Types.ObjectId(filters.eventId);
+        } catch (err) {
+          eventObjId = filters.eventId;
+        }
         q.$or = [
-          { scannerId: new Types.ObjectId(filters.userId) },
-          { scannerId: filters.userId }
+          { eventId: eventObjId },
+          { "eventId._id": filters.eventId }
         ];
       }
       if (Object.keys(dateFilter).length) q.createdAt = dateFilter;
@@ -379,5 +393,54 @@ export class AdminService {
     });
 
     return updated;
+  }
+
+  async updateUserStatus(targetUserId: string, status: string, adminId: string) {
+    const user = await this.userModel.findById(targetUserId);
+    if (!user) throw new BadRequestException('User not found');
+    const oldStatus = user.status || 'active';
+    user.status = status;
+    await user.save();
+
+    this.writeAdminLog({
+      adminId,
+      action: 'update_user_status',
+      targetId: targetUserId,
+      targetType: 'user',
+      targetName: user.name || user.phoneNumber,
+      changes: { before: { status: oldStatus }, after: { status } },
+    });
+
+    return { success: true, user };
+  }
+
+  async deleteUserAccount(targetUserId: string, adminId: string) {
+    const user = await this.userModel.findById(targetUserId);
+    if (!user) throw new BadRequestException('User not found');
+    
+    const timestamp = Date.now();
+    const oldDetails = {
+      name: user.name,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      status: user.status || 'active'
+    };
+
+    user.name = 'Deleted User';
+    user.email = '';
+    user.phoneNumber = `deleted_${timestamp}`;
+    user.status = 'deleted';
+    await user.save();
+
+    this.writeAdminLog({
+      adminId,
+      action: 'delete_user_account',
+      targetId: targetUserId,
+      targetType: 'user',
+      targetName: `Deleted User (${user.phoneNumber})`,
+      changes: { before: oldDetails, after: { name: user.name, email: user.email, phoneNumber: user.phoneNumber, status: user.status } },
+    });
+
+    return { success: true, message: 'User account deleted successfully' };
   }
 }

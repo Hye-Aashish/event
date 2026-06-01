@@ -18,7 +18,8 @@ export class ZonesController {
         ...z,
         dailyPrice: dPrice,
         seasonPrice: sPrice,
-        availableSeats: z.availableSeats ?? z.available ?? 0
+        availableSeats: z.availableSeats ?? z.available ?? 0,
+        isMultipleAllowed: z.isMultipleAllowed !== false
       };
     });
   }

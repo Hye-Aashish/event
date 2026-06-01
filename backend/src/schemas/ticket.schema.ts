@@ -92,6 +92,9 @@ export class Ticket {
   // Status
   @Prop({ default: 'active', enum: ['active', 'used', 'expired', 'transferred', 'cancelled'] })
   status: string;
+
+  @Prop({ default: 1 })
+  quantity: number;
 }
 
 export const TicketSchema = SchemaFactory.createForClass(Ticket);

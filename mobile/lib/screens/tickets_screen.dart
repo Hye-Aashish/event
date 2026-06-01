@@ -259,7 +259,9 @@ class _TicketList extends StatelessWidget {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
                   itemCount: tickets.length,
-                  itemBuilder: (ctx, i) => _TicketCard(ticket: tickets[i]),
+                  itemBuilder: (ctx, i) => _TicketCard(
+                    ticket: tickets[i],
+                  ),
                 ),
     );
   }
@@ -303,30 +305,59 @@ class _TicketCardState extends State<_TicketCard> {
               children: [
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        gradient: isActive
-                            ? (ticket.isSeasonPass
-                                ? AppColors.gradientGold
-                                : AppColors.gradientPrimary)
-                            : AppColors.cardGradient,
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: isActive
-                            ? [
-                                BoxShadow(
-                                    color: AppColors.primary.withOpacity(0.3),
-                                    blurRadius: 12)
-                              ]
-                            : null,
-                      ),
-                      child: Icon(
-                        ticket.isSeasonPass
-                            ? Icons.stars_rounded
-                            : Icons.confirmation_num_rounded,
-                        color: Colors.white,
-                        size: 22,
-                      ),
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            gradient: isActive
+                                ? (ticket.isSeasonPass
+                                    ? AppColors.gradientGold
+                                    : AppColors.gradientPrimary)
+                                : AppColors.cardGradient,
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: isActive
+                                ? [
+                                    BoxShadow(
+                                        color:
+                                            AppColors.primary.withOpacity(0.3),
+                                        blurRadius: 12)
+                                  ]
+                                : null,
+                          ),
+                          child: Icon(
+                            ticket.isSeasonPass
+                                ? Icons.stars_rounded
+                                : Icons.confirmation_num_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                        // Quantity badge — shown when user owns >1 of this type
+                        if (widget.ticket.quantity > 1)
+                          Positioned(
+                            top: -6,
+                            right: -6,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 5, vertical: 2),
+                              decoration: BoxDecoration(
+                                gradient: AppColors.gradientNavratri,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                    color: AppColors.background, width: 1.5),
+                              ),
+                              child: Text(
+                                '${widget.ticket.quantity}x',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(width: 14),
                     Expanded(

@@ -44,6 +44,19 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> deleteAccount() async {
+    try {
+      final res = await DioClient.instance.dio.delete('/auth/account');
+      return {'success': true, ...res.data};
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    } finally {
+      await clearToken();
+    }
+  }
+
   // ─── Auth APIs ───────────────────────────────────────────────
   static Future<Map<String, dynamic>> sendOtp(String phone) async {
     try {
@@ -153,11 +166,44 @@ class ApiService {
 
   static Future<Map<String, dynamic>> transferTicket(
       String ticketId, String toPhone) async {
+    // Legacy kept for backward compatibility — use initiateTransfer instead
     try {
       final res = await DioClient.instance.dio.post(
-        '/tickets/$ticketId/transfer',
-        data: {'toPhone': toPhone},
+        '/tickets/transfer/initiate',
+        data: {'ticketIds': [ticketId], 'toPhone': toPhone},
       );
+      return {'success': true, ...res.data};
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    }
+  }
+
+  static Future<Map<String, dynamic>> initiateTransfer(
+      Map<String, dynamic> data) async {
+    try {
+      final res = await DioClient.instance.dio
+          .post('/tickets/transfer/initiate', data: data);
+      return {'success': true, ...res.data};
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    }
+  }
+
+  static Future<Map<String, dynamic>> confirmTransfer(
+      Map<String, dynamic> data) async {
+    try {
+      final res = await DioClient.instance.dio
+          .post('/tickets/transfer/confirm', data: data);
+      return {'success': true, ...res.data};
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    }
+  }
+
+  static Future<Map<String, dynamic>> getMaxTicketsPerOrder() async {
+    try {
+      final res =
+          await DioClient.instance.dio.get('/tickets/settings/max-qty');
       return {'success': true, ...res.data};
     } on DioException catch (e) {
       return _handleDioError(e);
