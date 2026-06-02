@@ -3,6 +3,16 @@ node_modules/
 jspm_packages/
 
 # Build outputs
+build/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/flutter_settings.json
+android/local.properties
+android/key.properties
+*.keystore
+*.jks
+
+# Build outputs
 dist/
 build/
 bin/
@@ -31,11 +41,5 @@ Thumbs.db
 .packages
 .pub-cache/
 .pub/
-build/
-ios/Flutter/Generated.xcconfig
-ios/Flutter/flutter_export_environment.sh
-ios/Flutter/flutter_settings.json
-android/local.properties
-android/key.properties
-*.keystore
-*.jks
+# Scanner App
+scanner_app/
