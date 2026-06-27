@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:navratri_event_app/widgets/app_constant.dart';
 import 'package:provider/provider.dart';
 
 import '../models/event_model.dart';
@@ -834,15 +835,15 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                   ClipRRect(
                     borderRadius:
                         const BorderRadius.vertical(top: Radius.circular(20)),
-                    child: event.imageUrl != null
+                    child: event.fullImageUrl != null
                         ? Image.network(
-                            event.imageUrl!,
-                            height: 120,
+                            event.fullImageUrl!,
+                            height: 140,
                             width: double.infinity,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _gradientHeader(120),
+                            errorBuilder: (_, __, ___) => _gradientHeader(140),
                           )
-                        : _gradientHeader(120),
+                        : _gradientHeader(140),
                   ),
                   // Overlay gradient fade
                   Positioned(
@@ -857,7 +858,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                           end: Alignment.bottomCenter,
                           colors: [
                             Colors.transparent,
-                            AppColors.surface.withOpacity(0.8),
+                            AppColors.surface.withOpacity(0.6),
                           ],
                         ),
                       ),
@@ -975,7 +976,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
         gradient: AppColors.gradientNavratri,
       ),
       child: const Center(
-        child: Text('🪔', style: TextStyle(fontSize: 40)),
+        child: Text('🥢🥁💃', style: TextStyle(fontSize: 40)),
       ),
     );
   }
@@ -1121,7 +1122,7 @@ class _PremiumBannerState extends State<_PremiumBanner>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('🪔 Navratri 2026',
+                  const Text('🥢🥁💃 Navratri 2026',
                       style: TextStyle(
                           color: Colors.white70,
                           fontSize: 12,

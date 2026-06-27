@@ -52,13 +52,13 @@ class EventDetailScreen extends StatelessWidget {
                         gradient: AppColors.gradientNavratri,
                       ),
                       child: const Center(
-                        child: Text('🪔', style: TextStyle(fontSize: 80)),
+                        child: Text('🥢🥁💃', style: TextStyle(fontSize: 80)),
                       ),
                     ),
                     // Image overlay if available
-                    if (event.imageUrl != null)
+                    if (event.fullImageUrl != null)
                       Image.network(
-                        event.imageUrl!,
+                        event.fullImageUrl!,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => const SizedBox(),
                       ),
@@ -75,7 +75,7 @@ class EventDetailScreen extends StatelessWidget {
                             end: Alignment.bottomCenter,
                             colors: [
                               Colors.transparent,
-                              AppColors.background.withOpacity(0.7),
+                              AppColors.background.withOpacity(0.4),
                               AppColors.background,
                             ],
                           ),

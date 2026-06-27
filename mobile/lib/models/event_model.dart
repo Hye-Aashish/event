@@ -1,3 +1,5 @@
+import '../widgets/app_constant.dart';
+
 class EventModel {
   final String id;
   final String name;
@@ -60,6 +62,16 @@ class EventModel {
   String get dayOfWeek {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return days[date.weekday - 1];
+  }
+
+  String? get fullImageUrl {
+    if (imageUrl == null || imageUrl!.isEmpty) return null;
+    if (imageUrl!.startsWith('http://') || imageUrl!.startsWith('https://')) {
+      return imageUrl;
+    }
+    final serverUrl = AppConstant.baseUrl.replaceAll('/api', '');
+    final path = imageUrl!.startsWith('/') ? imageUrl! : '/$imageUrl';
+    return '$serverUrl$path';
   }
 }
 

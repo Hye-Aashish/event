@@ -827,10 +827,17 @@ document.getElementById('eventImageFile').addEventListener('change', async (e) =
   const formData = new FormData();
   formData.append('image', file);
 
+  const token = localStorage.getItem('admin_token');
+  const headers = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   try {
     showToast('📤 Uploading image...', 'info');
     const res = await fetch(API + '/events/upload', {
       method: 'POST',
+      headers,
       body: formData
     });
     const data = await res.json();

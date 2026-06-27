@@ -297,7 +297,7 @@ class _EventsScreenState extends State<EventsScreen> {
             duration: const Duration(milliseconds: 900),
             curve: Curves.easeInOut,
             builder: (_, v, child) => Transform.scale(scale: v, child: child),
-            child: const Text('🪔', style: TextStyle(fontSize: 80)),
+            child: const Text('🥢🥁💃', style: TextStyle(fontSize: 80)),
           ),
           const SizedBox(height: 16),
           const Text('No events yet',
@@ -459,10 +459,10 @@ class _EventCard extends StatelessWidget {
                 ClipRRect(
                   borderRadius:
                       const BorderRadius.vertical(top: Radius.circular(20)),
-                  child: event.imageUrl != null
+                  child: event.fullImageUrl != null
                       ? Image.network(
-                          event.imageUrl!,
-                          height: 140,
+                          event.fullImageUrl!,
+                          height: 260,
                           width: double.infinity,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => _gradientHeader(),
@@ -482,7 +482,7 @@ class _EventCard extends StatelessWidget {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          AppColors.surface.withOpacity(0.9),
+                          AppColors.surface.withOpacity(0.6),
                         ],
                       ),
                     ),
@@ -609,7 +609,7 @@ class _EventCard extends StatelessWidget {
 
   Widget _gradientHeader() {
     return Container(
-      height: 140,
+      height: 260,
       width: double.infinity,
       decoration: const BoxDecoration(
         gradient: AppColors.gradientNavratri,
@@ -618,7 +618,7 @@ class _EventCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('🪔', style: TextStyle(fontSize: 40)),
+            const Text('🥢🥁💃', style: TextStyle(fontSize: 40)),
             Text(event.dayOfWeek,
                 style: const TextStyle(color: Colors.white70, fontSize: 13)),
           ],
