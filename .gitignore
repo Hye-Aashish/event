@@ -43,3 +43,6 @@ Thumbs.db
 .pub/
 # Scanner App
 scanner_app/
+
+# TS build cache
+*.tsbuildinfo
