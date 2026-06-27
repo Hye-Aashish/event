@@ -134,19 +134,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         decoration: const BoxDecoration(gradient: AppColors.gradientBackground),
         child: Stack(
           children: [
-            // Glow blobs
-            Positioned(
-              top: -80,
-              right: -60,
-              child: Container(
-                width: 260,
-                height: 260,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.secondary.withOpacity(0.07),
-                ),
-              ),
-            ),
+            // // Glow blobs
+            // Positioned(
+            //   top: -80,
+            //   right: -60,
+            //   child: Container(
+            //     width: 260,
+            //     height: 260,
+            //     decoration: BoxDecoration(
+            //       shape: BoxShape.circle,
+            //       color: AppColors.secondary.withOpacity(0.07),
+            //     ),
+            //   ),
+            // ),
             SafeArea(
               bottom: false,
               child: RefreshIndicator(
@@ -312,7 +312,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     color: AppColors.error,
                                     gradient: const LinearGradient(colors: [
                                       AppColors.error,
-                                      Color(0xFFFF8A80)
+                                      AppColors.error,
                                     ]),
                                     onTap: () => _confirmLogout(context, auth),
                                   ),
@@ -325,9 +325,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     color: AppColors.error,
                                     gradient: const LinearGradient(colors: [
                                       AppColors.error,
-                                      Color(0xFFEF5350)
+                                      AppColors.error,
                                     ]),
-                                    onTap: () => _confirmDeleteAccount(context, auth),
+                                    onTap: () =>
+                                        _confirmDeleteAccount(context, auth),
                                   ),
                                 ],
                               ),
@@ -478,8 +479,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           Container(
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                  colors: [AppColors.error, Color(0xFFFF8A80)]),
+              gradient: const LinearGradient(colors: [
+                AppColors.error,
+                AppColors.error,
+              ]),
               borderRadius: BorderRadius.circular(10),
             ),
             child: TextButton(
@@ -530,7 +533,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: TextButton(
               onPressed: () async {
                 Navigator.pop(context); // close dialog
-                
+
                 // Show loading indicator
                 showDialog(
                   context: context,
@@ -543,7 +546,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 );
 
                 final res = await auth.deleteAccount();
-                
+
                 if (context.mounted) {
                   Navigator.pop(context); // close loading indicator
                   if (res['success'] == true) {
@@ -558,7 +561,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(res['message'] ?? 'Failed to delete account'),
+                        content:
+                            Text(res['message'] ?? 'Failed to delete account'),
                         backgroundColor: AppColors.error,
                       ),
                     );
@@ -603,15 +607,9 @@ class _AvatarCard extends StatelessWidget {
               Container(
                 width: 106,
                 height: 106,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: AppColors.gradientNavratri,
-                  boxShadow: [
-                    BoxShadow(
-                        color: AppColors.primary.withOpacity(0.4),
-                        blurRadius: 24,
-                        spreadRadius: 4),
-                  ],
                 ),
               ),
               Container(

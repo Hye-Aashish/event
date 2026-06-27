@@ -1,5 +1,9 @@
 // ── Config ────────────────────────────────────────────────────────
-const API = '/api';
+// In local development, we point to localhost.
+// In production, change this to your actual Render backend URL (e.g. https://event-backend.onrender.com/api)
+const API = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')
+  ? 'http://localhost:3000/api'
+  : 'https://event.onrender.com/api'; // <-- REPLACE with your live Render backend URL!
 let allEvents = [];
 
 // ── Utility ──────────────────────────────────────────────────────

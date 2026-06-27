@@ -49,12 +49,11 @@ class _SplashScreenState extends State<SplashScreen>
     _logoFade = Tween<double>(begin: 0, end: 1).animate(
         CurvedAnimation(parent: _logoController, curve: Curves.easeOut));
     _logoScale = Tween<double>(begin: 0.6, end: 1.0).animate(
-        CurvedAnimation(
-            parent: _logoController, curve: Curves.elasticOut));
+        CurvedAnimation(parent: _logoController, curve: Curves.elasticOut));
     _textFade = Tween<double>(begin: 0, end: 1).animate(
         CurvedAnimation(parent: _textController, curve: Curves.easeOut));
-    _textSlide =
-        Tween<Offset>(begin: const Offset(0, 0.4), end: Offset.zero).animate(
+    _textSlide = Tween<Offset>(begin: const Offset(0, 0.4), end: Offset.zero)
+        .animate(
             CurvedAnimation(parent: _textController, curve: Curves.easeOut));
     _pulse = Tween<double>(begin: 0.95, end: 1.05).animate(
         CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut));
@@ -71,8 +70,8 @@ class _SplashScreenState extends State<SplashScreen>
         CurvedAnimation(parent: _blob2Controller, curve: Curves.easeInOut));
 
     _logoController.forward();
-    Future.delayed(const Duration(milliseconds: 400),
-        () => _textController.forward());
+    Future.delayed(
+        const Duration(milliseconds: 400), () => _textController.forward());
     Future.delayed(const Duration(seconds: 2), _navigate);
   }
 
@@ -113,27 +112,26 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration:
-            const BoxDecoration(gradient: AppColors.gradientBackground),
+        decoration: const BoxDecoration(gradient: AppColors.gradientBackground),
         child: Stack(
           children: [
-            // Animated glow blobs
-            AnimatedBuilder(
-              animation: _blob1Anim,
-              builder: (_, __) => Positioned(
-                top: _blob1Anim.value.dy,
-                left: _blob1Anim.value.dx,
-                child: _glowBlob(AppColors.primary, 320),
-              ),
-            ),
-            AnimatedBuilder(
-              animation: _blob2Anim,
-              builder: (_, __) => Positioned(
-                bottom: _blob2Anim.value.dy,
-                right: _blob2Anim.value.dx,
-                child: _glowBlob(AppColors.secondary, 280),
-              ),
-            ),
+            // // Animated glow blobs
+            // AnimatedBuilder(
+            //   animation: _blob1Anim,
+            //   builder: (_, __) => Positioned(
+            //     top: _blob1Anim.value.dy,
+            //     left: _blob1Anim.value.dx,
+            //     child: _glowBlob(AppColors.primary, 320),
+            //   ),
+            // ),
+            // AnimatedBuilder(
+            //   animation: _blob2Anim,
+            //   builder: (_, __) => Positioned(
+            //     bottom: _blob2Anim.value.dy,
+            //     right: _blob2Anim.value.dx,
+            //     child: _glowBlob(AppColors.secondary, 280),
+            //   ),
+            // ),
 
             // Frosted glass accent strip
             Positioned(
@@ -164,19 +162,9 @@ class _SplashScreenState extends State<SplashScreen>
                         child: Container(
                           width: 110,
                           height: 110,
-                          decoration: BoxDecoration(
+                          decoration: const BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: AppColors.gradientNavratri,
-                            boxShadow: [
-                              BoxShadow(
-                                  color: AppColors.primary.withOpacity(0.55),
-                                  blurRadius: 40,
-                                  spreadRadius: 6),
-                              BoxShadow(
-                                  color: AppColors.secondary.withOpacity(0.3),
-                                  blurRadius: 60,
-                                  spreadRadius: 10),
-                            ],
+                            gradient: AppColors.gradientPrimary,
                           ),
                           child: const Center(
                             child: Text('🪔', style: TextStyle(fontSize: 48)),

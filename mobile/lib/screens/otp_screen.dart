@@ -122,12 +122,11 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin {
     }
     _shakeController.forward(from: 0);
     HapticFeedback.heavyImpact();
-    Future.delayed(
-        const Duration(seconds: 1), () {
-          if (mounted) {
-            setState(() => _hasError = false);
-          }
-        });
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) {
+        setState(() => _hasError = false);
+      }
+    });
   }
 
   void _showError(String msg) {
@@ -162,23 +161,23 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin {
         decoration: const BoxDecoration(gradient: AppColors.gradientBackground),
         child: Stack(
           children: [
-            // Animated blobs
-            AnimatedBuilder(
-              animation: _blob1,
-              builder: (_, __) => Positioned(
-                top: _blob1.value.dy,
-                right: _blob1.value.dx,
-                child: _glowBlob(AppColors.secondary, 260),
-              ),
-            ),
-            AnimatedBuilder(
-              animation: _blob2,
-              builder: (_, __) => Positioned(
-                bottom: _blob2.value.dy,
-                left: _blob2.value.dx,
-                child: _glowBlob(AppColors.primary, 240),
-              ),
-            ),
+            // // Animated blobs
+            // AnimatedBuilder(
+            //   animation: _blob1,
+            //   builder: (_, __) => Positioned(
+            //     top: _blob1.value.dy,
+            //     right: _blob1.value.dx,
+            //     child: _glowBlob(AppColors.secondary, 260),
+            //   ),
+            // ),
+            // AnimatedBuilder(
+            //   animation: _blob2,
+            //   builder: (_, __) => Positioned(
+            //     bottom: _blob2.value.dy,
+            //     left: _blob2.value.dx,
+            //     child: _glowBlob(AppColors.primary, 240),
+            //   ),
+            // ),
 
             SafeArea(
               child: FadeTransition(

@@ -258,18 +258,18 @@ class _VerificationScreenState extends State<VerificationScreen>
         decoration: const BoxDecoration(gradient: AppColors.gradientBackground),
         child: Stack(
           children: [
-            Positioned(
-              top: -60,
-              right: -60,
-              child: Container(
-                width: 220,
-                height: 220,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.gold.withOpacity(0.08),
-                ),
-              ),
-            ),
+            // Positioned(
+            //   top: -60,
+            //   right: -60,
+            //   child: Container(
+            //     width: 220,
+            //     height: 220,
+            //     decoration: BoxDecoration(
+            //       shape: BoxShape.circle,
+            //       color: AppColors.gold.withOpacity(0.08),
+            //     ),
+            //   ),
+            // ),
             SafeArea(
               child: FadeTransition(
                 opacity: _fade,
@@ -406,7 +406,7 @@ class _VerificationScreenState extends State<VerificationScreen>
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    gradient: AppColors.gradientGold,
+                    gradient: AppColors.gradientPrimary,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
@@ -454,7 +454,7 @@ class _VerificationScreenState extends State<VerificationScreen>
           isCompleted: _idFile != null,
           imagePath: _idFile?.path,
           onTap: _uploadId,
-          gradient: AppColors.gradientGold,
+          gradient: AppColors.gradientPrimary,
         ),
 
         const SizedBox(height: 28),

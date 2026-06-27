@@ -88,12 +88,6 @@ class _FloatingNavBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(32),
               border: Border.all(
                   color: AppColors.borderLight.withOpacity(0.5), width: 1),
-              boxShadow: [
-                BoxShadow(
-                    color: AppColors.primary.withOpacity(0.12),
-                    blurRadius: 30,
-                    spreadRadius: 0),
-              ],
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -172,11 +166,6 @@ class _NavItemWithBadge extends StatelessWidget {
                 ? BoxDecoration(
                     gradient: AppColors.gradientPrimary,
                     borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                          color: AppColors.primary.withOpacity(0.35),
-                          blurRadius: 12),
-                    ],
                   )
                 : null,
             child: Row(
@@ -251,13 +240,8 @@ class _NavItem extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: isSelected
             ? BoxDecoration(
-                gradient: AppColors.gradientPrimary,
+                color: AppColors.primary,
                 borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                      color: AppColors.primary.withOpacity(0.35),
-                      blurRadius: 12),
-                ],
               )
             : null,
         child: Row(
@@ -350,23 +334,23 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
       decoration: const BoxDecoration(gradient: AppColors.gradientBackground),
       child: Stack(
         children: [
-          // Animated drifting glow blobs
-          AnimatedBuilder(
-            animation: _blob1Anim,
-            builder: (_, __) => Positioned(
-              top: _blob1Anim.value.dy,
-              right: _blob1Anim.value.dx,
-              child: _glowBlob(AppColors.primary, 280),
-            ),
-          ),
-          AnimatedBuilder(
-            animation: _blob2Anim,
-            builder: (_, __) => Positioned(
-              top: _blob2Anim.value.dy,
-              left: _blob2Anim.value.dx,
-              child: _glowBlob(AppColors.secondary, 220),
-            ),
-          ),
+          // // Animated drifting glow blobs
+          // AnimatedBuilder(
+          //   animation: _blob1Anim,
+          //   builder: (_, __) => Positioned(
+          //     top: _blob1Anim.value.dy,
+          //     right: _blob1Anim.value.dx,
+          //     child: _glowBlob(AppColors.primary, 280),
+          //   ),
+          // ),
+          // AnimatedBuilder(
+          //   animation: _blob2Anim,
+          //   builder: (_, __) => Positioned(
+          //     top: _blob2Anim.value.dy,
+          //     left: _blob2Anim.value.dx,
+          //     child: _glowBlob(AppColors.secondary, 220),
+          //   ),
+          // ),
           SafeArea(
             bottom: false,
             child: RefreshIndicator(
@@ -478,25 +462,21 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 20, vertical: 14),
                             decoration: BoxDecoration(
-                              gradient: AppColors.gradientNavratri,
+                              gradient: AppColors.cardGradient,
+                              border: Border.all(
+                                  color: AppColors.primary.withOpacity(0.3)),
                               borderRadius: BorderRadius.circular(18),
-                              boxShadow: [
-                                BoxShadow(
-                                    color: AppColors.primary.withOpacity(0.4),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 6)),
-                              ],
                             ),
                             child: Row(
                               children: [
                                 Container(
                                   padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
+                                    color: AppColors.primary.withOpacity(0.2),
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(Icons.qr_code_rounded,
-                                      color: Colors.white, size: 22),
+                                      color: AppColors.primary, size: 22),
                                 ),
                                 const SizedBox(width: 14),
                                 Expanded(
@@ -506,7 +486,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                                     children: [
                                       const Text('Show My QR',
                                           style: TextStyle(
-                                              color: Colors.white,
+                                              color: AppColors.primary,
                                               fontWeight: FontWeight.bold,
                                               fontSize: 15,
                                               letterSpacing: -0.2)),
@@ -663,13 +643,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                                   child: _PressableActionCard(
                                 icon: Icons.confirmation_num_outlined,
                                 label: 'My Tickets',
-                                gradient: LinearGradient(
-                                    colors: [
-                                      AppColors.secondary,
-                                      AppColors.secondary.withBlue(255)
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight),
+                                gradient: AppColors.gradientPrimary,
                                 onTap: () {
                                   final homeState = homeScreenKey.currentState;
                                   if (homeState is HomeScreenState) {
@@ -682,7 +656,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                                   child: _PressableActionCard(
                                 icon: Icons.verified_user_rounded,
                                 label: 'Verify ID',
-                                gradient: AppColors.gradientGold,
+                                gradient: AppColors.gradientPrimary,
                                 onTap: () => Navigator.pushNamed(
                                     context, '/verification'),
                               )),
@@ -789,15 +763,9 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
       child: Container(
         width: 46,
         height: 46,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           shape: BoxShape.circle,
           gradient: AppColors.gradientPrimary,
-          boxShadow: [
-            BoxShadow(
-                color: AppColors.primary.withOpacity(0.4),
-                blurRadius: 16,
-                spreadRadius: 2)
-          ],
         ),
         child: Center(
           child: Text(initials,
@@ -821,15 +789,6 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
             decoration: BoxDecoration(
               gradient: gradient,
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: (gradient as LinearGradient)
-                      .colors
-                      .first
-                      .withOpacity(0.4),
-                  blurRadius: 12,
-                ),
-              ],
             ),
             child: Icon(icon, color: Colors.white, size: 18),
           ),
@@ -912,7 +871,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        gradient: AppColors.gradientNavratri,
+                        color: AppColors.background,
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
@@ -1129,14 +1088,9 @@ class _PremiumBannerState extends State<_PremiumBanner>
     return Container(
       height: 160,
       decoration: BoxDecoration(
-        gradient: AppColors.gradientNavratri,
+        gradient: AppColors.cardGradient,
+        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-              color: AppColors.primary.withOpacity(0.35),
-              blurRadius: 24,
-              offset: const Offset(0, 10)),
-        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
@@ -1154,7 +1108,7 @@ class _PremiumBannerState extends State<_PremiumBanner>
                     height: 6 + (i * 2).toDouble(),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.1 + i * 0.03),
+                      color: AppColors.primary.withOpacity(0.1 + i * 0.03),
                     ),
                   ),
                 ),
@@ -1175,7 +1129,7 @@ class _PremiumBannerState extends State<_PremiumBanner>
                           fontWeight: FontWeight.w600)),
                   const Text('Experience 9 Nights\nof Garba & Dandiya',
                       style: TextStyle(
-                          color: Colors.white,
+                          color: AppColors.primary,
                           fontSize: 19,
                           fontWeight: FontWeight.w800,
                           height: 1.3,
@@ -1268,14 +1222,6 @@ class _PressableActionCardState extends State<_PressableActionCard> {
                 decoration: BoxDecoration(
                   gradient: widget.gradient,
                   shape: BoxShape.circle,
-                  boxShadow: _pressed
-                      ? []
-                      : [
-                          BoxShadow(
-                              color: glowColor,
-                              blurRadius: 14,
-                              spreadRadius: 1),
-                        ],
                 ),
                 child: Icon(widget.icon, color: Colors.white, size: 22),
               ),

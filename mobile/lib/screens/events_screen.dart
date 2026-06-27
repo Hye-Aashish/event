@@ -494,8 +494,9 @@ class _EventCard extends StatelessWidget {
                   right: 12,
                   child: StatusBadge(
                     label: event.isActive ? 'Active' : 'Upcoming',
-                    color:
-                        event.isActive ? AppColors.success : AppColors.warning,
+                    color: event.isActive
+                        ? AppColors.background
+                        : AppColors.warning,
                     animate: event.isActive,
                   ),
                 ),

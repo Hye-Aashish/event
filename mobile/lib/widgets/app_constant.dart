@@ -4,7 +4,7 @@ class AppConstant {
   // start backend
   // npm run start:dev
 
-  // admin passs
+  // admin passs 9999999999 123456
   // backend/seed.js
   // after chnaging pass run on terminal : node seed.js
 

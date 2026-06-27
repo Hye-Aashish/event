@@ -3,13 +3,13 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppColors {
   static const background = Color(0xFF0B0B0F);
-  static const surface = Color(0xFF16161E);
+  static const surface = Color(0xFF1E1E1E);
   static const surfaceLight = Color(0xFF1E1E2A);
   static const surfaceVariant = Color(0xFF1A1A28);
-  static const primary = Color(0xFFFF0080); // Neon Pink
-  static const secondary = Color(0xFF7928CA); // Neon Purple
-  static const accent = Color(0xFFFF6B35); // Neon Orange
-  static const gold = Color(0xFFFFD700); // Gold (Navratri)
+  static const primary = Color(0xFFF59E0B);
+  static const secondary = Color(0xFFF59E0B);
+  static const accent = Color(0xFFFF6B35);
+  static const gold = Color(0xFFFFD700);
   static const success = Color(0xFF00E676);
   static const warning = Color(0xFFFFAB40);
   static const error = Color(0xFFFF5252);
@@ -26,7 +26,7 @@ class AppColors {
   );
 
   static const gradientNavratri = LinearGradient(
-    colors: [Color(0xFFFF8C00), Color(0xFFFF0080), Color(0xFF7928CA)],
+    colors: [Color(0xFFF59E0B), Color(0xFFF59E0B), Color(0xFFF59E0B)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -38,7 +38,7 @@ class AppColors {
   );
 
   static const gradientBackground = LinearGradient(
-    colors: [Color(0xFF0B0B0F), Color(0xFF12121A)],
+    colors: [Color(0xFF121212), Color(0xFF121212)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
@@ -99,10 +99,10 @@ class AppTheme {
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w600,
               fontSize: 16),
-          bodyLarge:
-              TextStyle(color: AppColors.textSecondary, fontSize: 16, height: 1.5),
-          bodyMedium:
-              TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.5),
+          bodyLarge: TextStyle(
+              color: AppColors.textSecondary, fontSize: 16, height: 1.5),
+          bodyMedium: TextStyle(
+              color: AppColors.textSecondary, fontSize: 14, height: 1.5),
           bodySmall: TextStyle(color: AppColors.textMuted, fontSize: 12),
           labelLarge: TextStyle(
               color: AppColors.textPrimary,
@@ -155,8 +155,7 @@ class AppTheme {
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          textStyle:
-              const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(

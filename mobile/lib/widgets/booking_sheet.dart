@@ -655,7 +655,7 @@ class _BookingSheetState extends State<BookingSheet>
                           onPressed: _selectedZone != null && !_isLoading
                               ? _purchase
                               : null,
-                          gradient: AppColors.gradientNavratri,
+                          gradient: AppColors.gradientPrimary,
                         ),
 
                         const SizedBox(height: 8),
@@ -774,12 +774,6 @@ class _BookingSheetState extends State<BookingSheet>
               color: isSelected
                   ? AppColors.primary.withOpacity(0.5)
                   : AppColors.border),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                      color: AppColors.primary.withOpacity(0.3), blurRadius: 10)
-                ]
-              : null,
         ),
         child: Text(label,
             style: TextStyle(
@@ -827,9 +821,6 @@ class _BookingSheetState extends State<BookingSheet>
                       ? zoneColor.withOpacity(0.6)
                       : AppColors.border,
               width: isSelected ? 1.5 : 1.0),
-          boxShadow: isSelected && !isSoldOut
-              ? [BoxShadow(color: zoneColor.withOpacity(0.15), blurRadius: 12)]
-              : null,
         ),
         child: Opacity(
           opacity: isSoldOut ? 0.5 : 1.0,
@@ -1066,7 +1057,7 @@ class _BookingSheetState extends State<BookingSheet>
       default:
         cardColor = AppColors.gold.withOpacity(0.06);
         accentColor = AppColors.gold;
-        buttonGradient = AppColors.gradientGold;
+        buttonGradient = AppColors.gradientPrimary;
         icon = Icons.verified_user_rounded;
         title = 'Identity Verification Required';
         description =

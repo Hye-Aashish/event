@@ -110,22 +110,22 @@ class _RegisterScreenState extends State<RegisterScreen>
         decoration: const BoxDecoration(gradient: AppColors.gradientBackground),
         child: Stack(
           children: [
-            AnimatedBuilder(
-              animation: _blob1,
-              builder: (_, __) => Positioned(
-                top: _blob1.value.dy,
-                right: _blob1.value.dx,
-                child: _glowBlob(AppColors.primary, 300),
-              ),
-            ),
-            AnimatedBuilder(
-              animation: _blob2,
-              builder: (_, __) => Positioned(
-                bottom: _blob2.value.dy,
-                left: _blob2.value.dx,
-                child: _glowBlob(AppColors.secondary, 250),
-              ),
-            ),
+            // AnimatedBuilder(
+            //   animation: _blob1,
+            //   builder: (_, __) => Positioned(
+            //     top: _blob1.value.dy,
+            //     right: _blob1.value.dx,
+            //     child: _glowBlob(AppColors.primary, 300),
+            //   ),
+            // ),
+            // AnimatedBuilder(
+            //   animation: _blob2,
+            //   builder: (_, __) => Positioned(
+            //     bottom: _blob2.value.dy,
+            //     left: _blob2.value.dx,
+            //     child: _glowBlob(AppColors.secondary, 250),
+            //   ),
+            // ),
             SafeArea(
               child: FadeTransition(
                 opacity: _fade,
@@ -286,12 +286,6 @@ class _RegisterScreenState extends State<RegisterScreen>
       duration: const Duration(milliseconds: 220),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        boxShadow: focused
-            ? [
-                BoxShadow(
-                    color: AppColors.primary.withOpacity(0.22), blurRadius: 20)
-              ]
-            : [],
       ),
       child: GlassCard(
         padding: EdgeInsets.zero,

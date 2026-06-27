@@ -855,15 +855,6 @@ class _TicketQRCard extends StatelessWidget {
             ? AppColors.gradientNavratri
             : AppColors.cardGradient,
         borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: ticket.isActive
-                ? AppColors.primary.withOpacity(0.4)
-                : Colors.black.withOpacity(0.2),
-            blurRadius: 30,
-            offset: const Offset(0, 12),
-          ),
-        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -895,7 +886,9 @@ class _TicketQRCard extends StatelessWidget {
                 ),
                 StatusBadge(
                   label: ticket.statusDisplay,
-                  color: ticket.isActive ? Colors.white : AppColors.textMuted,
+                  color: ticket.isActive
+                      ? AppColors.background
+                      : AppColors.textMuted,
                 ),
               ],
             ),

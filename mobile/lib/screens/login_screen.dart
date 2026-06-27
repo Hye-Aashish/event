@@ -124,31 +124,31 @@ class _LoginScreenState extends State<LoginScreen>
         decoration: const BoxDecoration(gradient: AppColors.gradientBackground),
         child: Stack(
           children: [
-            // ── Animated Glow Blobs ──────────────────────────────────
-            AnimatedBuilder(
-              animation: _blob1Anim,
-              builder: (_, __) => Positioned(
-                top: _blob1Anim.value.dy,
-                left: _blob1Anim.value.dx,
-                child: _glowBlob(AppColors.primary, 300),
-              ),
-            ),
-            AnimatedBuilder(
-              animation: _blob2Anim,
-              builder: (_, __) => Positioned(
-                top: _blob2Anim.value.dy,
-                right: _blob2Anim.value.dx - 300,
-                child: _glowBlob(AppColors.secondary, 250),
-              ),
-            ),
-            AnimatedBuilder(
-              animation: _blob3Anim,
-              builder: (_, __) => Positioned(
-                bottom: _blob3Anim.value.dy,
-                left: _blob3Anim.value.dx,
-                child: _glowBlob(AppColors.accent, 200),
-              ),
-            ),
+            // // ── Animated Glow Blobs ──────────────────────────────────
+            // AnimatedBuilder(
+            //   animation: _blob1Anim,
+            //   builder: (_, __) => Positioned(
+            //     top: _blob1Anim.value.dy,
+            //     left: _blob1Anim.value.dx,
+            //     child: _glowBlob(AppColors.primary, 300),
+            //   ),
+            // ),
+            // AnimatedBuilder(
+            //   animation: _blob2Anim,
+            //   builder: (_, __) => Positioned(
+            //     top: _blob2Anim.value.dy,
+            //     right: _blob2Anim.value.dx - 300,
+            //     child: _glowBlob(AppColors.secondary, 250),
+            //   ),
+            // ),
+            // AnimatedBuilder(
+            //   animation: _blob3Anim,
+            //   builder: (_, __) => Positioned(
+            //     bottom: _blob3Anim.value.dy,
+            //     left: _blob3Anim.value.dx,
+            //     child: _glowBlob(AppColors.accent, 200),
+            //   ),
+            // ),
 
             SafeArea(
               child: SingleChildScrollView(
@@ -170,16 +170,9 @@ class _LoginScreenState extends State<LoginScreen>
                         Container(
                           width: 80,
                           height: 80,
-                          decoration: BoxDecoration(
+                          decoration: const BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: AppColors.gradientNavratri,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primary.withOpacity(0.5),
-                                blurRadius: 30,
-                                spreadRadius: 4,
-                              ),
-                            ],
                           ),
                           child: const Center(
                             child: Text('🪔', style: TextStyle(fontSize: 38)),
@@ -215,16 +208,6 @@ class _LoginScreenState extends State<LoginScreen>
                           duration: const Duration(milliseconds: 220),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(16),
-                            boxShadow: _isFocused
-                                ? [
-                                    BoxShadow(
-                                      color:
-                                          AppColors.primary.withOpacity(0.25),
-                                      blurRadius: 20,
-                                      spreadRadius: 0,
-                                    ),
-                                  ]
-                                : [],
                           ),
                           child: GlassCard(
                             padding: const EdgeInsets.symmetric(
@@ -306,7 +289,7 @@ class _LoginScreenState extends State<LoginScreen>
                           icon: Icons.arrow_forward_rounded,
                           isLoading: auth.isLoading,
                           onPressed: auth.isLoading ? null : _sendOtp,
-                          gradient: AppColors.gradientNavratri,
+                          gradient: AppColors.gradientPrimary,
                         ),
 
                         const SizedBox(height: 20),

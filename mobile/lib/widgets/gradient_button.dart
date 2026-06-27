@@ -74,16 +74,6 @@ class _GradientButtonState extends State<GradientButton>
                 ? Colors.grey.withOpacity(0.2)
                 : null,
             borderRadius: BorderRadius.circular(16),
-            boxShadow:
-                (widget.onPressed != null || widget.isLoading) && !_pressed
-                    ? [
-                        BoxShadow(
-                          color: shadowColor,
-                          blurRadius: _pressed ? 6 : 16,
-                          offset: Offset(0, _pressed ? 2 : 8),
-                        )
-                      ]
-                    : null,
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),

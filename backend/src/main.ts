@@ -12,12 +12,19 @@ async function bootstrap() {
   
   app.enableCors({ origin: '*' });
 
-  // Serve static files BEFORE setting global prefix
-  app.useStaticAssets(path.join(process.cwd(), '..', 'app'), { prefix: '/app' });
-  app.useStaticAssets(path.join(process.cwd(), '..', 'admin-panel'), { prefix: '/admin' });
+  // Serve static files BEFORE setting global prefix if they exist
+  const fs = require('fs');
+  const appPath = path.join(process.cwd(), '..', 'app');
+  if (fs.existsSync(appPath)) {
+    app.useStaticAssets(appPath, { prefix: '/app' });
+  }
+
+  const adminPath = path.join(process.cwd(), '..', 'admin-panel');
+  if (fs.existsSync(adminPath)) {
+    app.useStaticAssets(adminPath, { prefix: '/admin' });
+  }
 
   // Create uploads folder if missing
-  const fs = require('fs');
   const uploadPath = path.join(process.cwd(), 'uploads');
   if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
   app.useStaticAssets(uploadPath, { prefix: '/uploads' });

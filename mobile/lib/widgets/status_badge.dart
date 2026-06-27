@@ -58,7 +58,7 @@ class _StatusBadgeState extends State<StatusBadge>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: widget.color.withOpacity(0.15),
+        color: widget.color.withOpacity(0.7),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: widget.color.withOpacity(0.5), width: 1),
       ),
@@ -72,7 +72,7 @@ class _StatusBadgeState extends State<StatusBadge>
                     width: 6,
                     height: 6,
                     decoration: BoxDecoration(
-                      color: widget.color.withOpacity(_pulse.value),
+                      color: Colors.white.withOpacity(_pulse.value),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
@@ -87,16 +87,16 @@ class _StatusBadgeState extends State<StatusBadge>
               : Container(
                   width: 6,
                   height: 6,
-                  decoration: BoxDecoration(
-                    color: widget.color,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
                     shape: BoxShape.circle,
                   ),
                 ),
           const SizedBox(width: 6),
           Text(
             widget.label,
-            style: TextStyle(
-              color: widget.color,
+            style: const TextStyle(
+              color: Colors.white,
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.5,
