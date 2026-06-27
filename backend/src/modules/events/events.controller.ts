@@ -36,6 +36,26 @@ export class EventsController {
     return { url: `/uploads/${file.filename}` };
   }
 
+  @Get('debug-uploads')
+  debugUploads() {
+    const fs = require('fs');
+    const path = require('path');
+    const cwd = process.cwd();
+    const uploadPath = path.join(cwd, 'uploads');
+    const exists = fs.existsSync(uploadPath);
+    let files = [];
+    if (exists) {
+      files = fs.readdirSync(uploadPath);
+    }
+    return {
+      cwd,
+      __dirname,
+      uploadPath,
+      exists,
+      files
+    };
+  }
+
   // ── Events ──────────────────────────────────────────────────────────────
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
