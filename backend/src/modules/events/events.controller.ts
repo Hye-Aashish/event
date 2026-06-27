@@ -3,6 +3,8 @@ import { EventsService } from './events.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import * as fs from 'fs';
+import * as path from 'path';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -38,22 +40,27 @@ export class EventsController {
 
   @Get('debug-uploads')
   debugUploads() {
-    const fs = require('fs');
-    const path = require('path');
-    const cwd = process.cwd();
-    const uploadPath = path.join(cwd, 'uploads');
-    const exists = fs.existsSync(uploadPath);
-    let files = [];
-    if (exists) {
-      files = fs.readdirSync(uploadPath);
+    try {
+      const cwd = process.cwd();
+      const uploadPath = path.join(cwd, 'uploads');
+      const exists = fs.existsSync(uploadPath);
+      let files = [];
+      if (exists) {
+        files = fs.readdirSync(uploadPath);
+      }
+      return {
+        cwd,
+        __dirname,
+        uploadPath,
+        exists,
+        files
+      };
+    } catch (e: any) {
+      return {
+        error: e.message,
+        stack: e.stack
+      };
     }
-    return {
-      cwd,
-      __dirname,
-      uploadPath,
-      exists,
-      files
-    };
   }
 
   // ── Events ──────────────────────────────────────────────────────────────
