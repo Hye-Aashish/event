@@ -1,5 +1,9 @@
 // ── Config ────────────────────────────────────────
-const API = '/api';
+// In local development, we point to localhost.
+// In production, change this to your actual Render backend URL.
+const API = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')
+  ? 'http://localhost:3000/api'
+  : 'https://navratri-app-backend.onrender.com/api';
 
 // ── State ─────────────────────────────────────────
 let state = {
@@ -114,10 +118,14 @@ function renderEventCards(containerId, events) {
     const prices = e.ticketPricing?.regular;
     const minPrice = prices ? Math.min(...Object.values(prices).filter(Boolean)) : 0;
     const dates   = (e.eventDates || []).slice(0, 3);
+    const imgUrl = e.imageUrl ? (API.replace('/api', '') + e.imageUrl) : '';
+    const bannerHtml = imgUrl 
+      ? `<div class="event-banner" style="background-image: url('${imgUrl}'); background-size: cover; background-position: center; height: 160px; border-radius: 12px 12px 0 0;"></div>`
+      : `<div class="event-banner-placeholder">🪔</div>`;
 
     return `
       <div class="event-card" onclick="openEvent('${e._id}')">
-        <div class="event-banner-placeholder">🪔</div>
+        ${bannerHtml}
         <div class="event-body">
           <div class="event-name">${e.name}</div>
           <div class="event-venue">📍 ${e.venue}</div>
@@ -152,9 +160,14 @@ async function openEvent(eventId) {
     const prices  = event.ticketPricing?.regular  || {};
     const sPrices = event.ticketPricing?.season || {};
 
+    const imgUrl = event.imageUrl ? (API.replace('/api', '') + event.imageUrl) : '';
+    const bannerHtml = imgUrl 
+      ? `<div class="event-banner" style="background-image: url('${imgUrl}'); background-size: cover; background-position: center; border-radius: 12px 12px 0 0; margin: -24px -24px 24px -24px; height: 260px;"></div>`
+      : `<div class="event-banner-placeholder" style="border-radius:12px 12px 0 0;margin:-24px -24px 24px -24px;height:260px;font-size:80px">🪔</div>`;
+
     el.innerHTML = `
       <div class="glass-card" style="margin-bottom:24px">
-        <div class="event-banner-placeholder" style="border-radius:12px 12px 0 0;margin:-24px -24px 24px -24px;height:260px;font-size:80px"></div>
+        ${bannerHtml}
         <h2 style="font-size:28px;font-weight:800;margin-bottom:8px">${event.name}</h2>
         <p style="color:var(--muted);margin-bottom:20px">${event.description || ''}</p>
         <div style="display:flex;flex-wrap:wrap;gap:20px;margin-bottom:24px">
