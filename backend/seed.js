@@ -36,7 +36,23 @@ const UserSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 async function seed() {
-  const MONGO_URI = 'mongodb+srv://aashishofficial123_db_user:AV445S3k0brlHEPu@cluster0.q0seg1w.mongodb.net/event_app';
+  // Read MONGO_URI from .env file if available to keep credentials secure
+  let MONGO_URI = 'mongodb+srv://aashishofficial123_db_user:AV445S3k0brlHEPu@cluster0.q0seg1w.mongodb.net/event_app';
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const envPath = path.join(__dirname, '.env');
+    if (fs.existsSync(envPath)) {
+      const envContent = fs.readFileSync(envPath, 'utf8');
+      const match = envContent.match(/^MONGODB_URI=(.+)$/m);
+      if (match && match[1]) {
+        MONGO_URI = match[1].trim();
+        console.log('Using database URI from .env file');
+      }
+    }
+  } catch (e) {
+    // Fallback to default
+  }
 
   try {
     console.log('Connecting to database...');

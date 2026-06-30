@@ -200,7 +200,10 @@ export class EventsService {
         { eventId: new Types.ObjectId(String(eventId)) },
         { eventId: String(eventId) }
       ]
-    }).populate('ownerId', 'name phoneNumber').lean();
+    })
+    .populate('eventId', 'name')
+    .populate('ownerId', 'name phoneNumber')
+    .lean();
 
     return zones.map(z => this.normalizeZone(z));
   }

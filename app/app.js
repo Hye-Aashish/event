@@ -4,7 +4,7 @@
 const API = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')
   ? 'http://localhost:3000/api'
   // : 'http://localhost:3000/api';
-: 'https://navratri-app-backend.onrender.com/api';
+  : 'https://navratri-app-backend.onrender.com/api';
 
 // ── State ─────────────────────────────────────────
 let state = {
