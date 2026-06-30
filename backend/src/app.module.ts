@@ -6,6 +6,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { join } from 'path';
 
 // Schemas
@@ -80,9 +82,10 @@ import { ZonesController } from './modules/zones/zones.controller';
       { name: AuthLog.name,     schema: AuthLogSchema },
     ]),
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'navratri-jwt-secret-2024',
-      signOptions: { expiresIn: '7d' },
+      secret: process.env.JWT_SECRET,
+      signOptions: { expiresIn: '1d' },
     }),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 10 }]),
   ],
   controllers: [
     AuthController,
@@ -100,6 +103,10 @@ import { ZonesController } from './modules/zones/zones.controller';
     ScannerService,
     SponsorService,
     AdminService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}

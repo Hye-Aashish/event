@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:navratri_event_app/widgets/app_constant.dart';
 import 'package:provider/provider.dart';
 
 import '../models/event_model.dart';

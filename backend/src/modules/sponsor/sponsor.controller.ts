@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Put, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Put, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { SponsorService } from './sponsor.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -11,8 +11,9 @@ export class SponsorController {
   constructor(private readonly sponsorService: SponsorService) {}
 
   @Post()
-  create(@Body() body: any) {
-    return this.sponsorService.createSponsor(body, body.adminId);
+  create(@Body() body: any, @Request() req) {
+    // Use the authenticated admin's ID from JWT, not from request body
+    return this.sponsorService.createSponsor(body, req.user.sub);
   }
 
   @Get('all')

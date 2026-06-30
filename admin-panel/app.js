@@ -3,12 +3,13 @@
 // In production, change this to your actual Render backend URL (e.g. https://event-backend.onrender.com/api)
 const API = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')
   ? 'http://localhost:3000/api'
-  : 'https://navratri-app-backend.onrender.com/api'; // <-- REPLACE with your live Render backend URL!
+  // : 'http://localhost:3000/api';
+: 'https://navratri-app-backend.onrender.com/api'; // <-- REPLACE with your live Render backend URL!
 let allEvents = [];
 
 // ── Utility ──────────────────────────────────────────────────────
 async function apiFetch(path, opts = {}) {
-  const token = localStorage.getItem('admin_token');
+  const token = sessionStorage.getItem('admin_token');
   const headers = { 'Content-Type': 'application/json' };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -827,7 +828,7 @@ document.getElementById('eventImageFile').addEventListener('change', async (e) =
   const formData = new FormData();
   formData.append('image', file);
 
-  const token = localStorage.getItem('admin_token');
+  const token = sessionStorage.getItem('admin_token');
   const headers = {};
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -907,8 +908,8 @@ async function verifyAdminOtp() {
       showToast('❌ Access Denied: Administrator role required', 'error');
       return;
     }
-    localStorage.setItem('admin_token', data.access_token);
-    localStorage.setItem('admin_user', JSON.stringify(data.user));
+    sessionStorage.setItem('admin_token', data.access_token);
+    sessionStorage.setItem('admin_user', JSON.stringify(data.user));
     document.getElementById('loginOverlay').style.display = 'none';
     document.getElementById('adminNameDisplay').textContent = data.user.name || 'Admin';
     showToast('🔓 Access Granted. Welcome!');
@@ -1827,8 +1828,8 @@ function renderAdminDetailActionsHtml(adminLogs) {
 }
 
 function adminLogout() {
-  localStorage.removeItem('admin_token');
-  localStorage.removeItem('admin_user');
+  sessionStorage.removeItem('admin_token');
+  sessionStorage.removeItem('admin_user');
   document.getElementById('loginOverlay').style.display = 'flex';
   document.getElementById('loginPhone').value = '';
   document.getElementById('loginOtp').value = '';
@@ -1837,8 +1838,8 @@ function adminLogout() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  const token = localStorage.getItem('admin_token');
-  const userStr = localStorage.getItem('admin_user');
+  const token = sessionStorage.getItem('admin_token');
+  const userStr = sessionStorage.getItem('admin_user');
   if (token && userStr) {
     try {
       const user = JSON.parse(userStr);

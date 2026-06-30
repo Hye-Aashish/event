@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsOptional, IsEnum } from 'class-validator';
+import { IsString, IsEmail, IsOptional } from 'class-validator';
 
 export class UpdateProfileDto {
   @IsOptional()
@@ -8,9 +8,5 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsEmail()
   email?: string;
-
-  @IsOptional()
-  @IsString()
-  @IsEnum(['user', 'scanner'])
-  role?: string;
+  // NOTE: role is intentionally excluded — use admin panel to change user roles
 }

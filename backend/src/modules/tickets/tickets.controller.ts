@@ -66,8 +66,8 @@ export class TicketsController {
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/submit-verification')
-  submitVerification(@Param('id') id: string, @Body() body: any) {
-    return this.ticketsService.submitVerification(id, body);
+  submitVerification(@Param('id') id: string, @Body() body: any, @Request() req) {
+    return this.ticketsService.submitVerification(id, req.user.sub, body);
   }
 
   @UseGuards(JwtAuthGuard)

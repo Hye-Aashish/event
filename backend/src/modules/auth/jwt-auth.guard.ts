@@ -20,7 +20,7 @@ export class JwtAuthGuard implements CanActivate {
     }
     try {
       const payload = await this.jwtService.verifyAsync(token, {
-        secret: 'navratri-jwt-secret-2024', // Should match AppModule's secret
+        secret: process.env.JWT_SECRET,
       });
 
       const user = await this.userModel.findById(payload.sub);

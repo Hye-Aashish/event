@@ -329,8 +329,8 @@ export class TicketsService {
       quantity: transferQty,
     });
 
-    // In production: send via SMS gateway
-    console.log(`🔄 Transfer OTP for User ${fromUserId} → ${toPhone}: ${otp} (ticket: ${ticketId}, qty: ${transferQty})`);
+    // In production: send via SMS gateway — OTP intentionally NOT logged to console for security
+    console.log(`🔄 Transfer OTP initiated for User ${fromUserId} → ${toPhone} (ticket: ${ticketId}, qty: ${transferQty})`);
 
     return {
       success: true,
@@ -511,9 +511,13 @@ export class TicketsService {
   }
 
   // ── Submit Season Pass Verification ──────────────────────────────────────
-  async submitVerification(ticketId: string, body: any) {
+  async submitVerification(ticketId: string, userId: string, body: any) {
     const ticket = await this.ticketModel.findById(ticketId);
     if (!ticket) throw new NotFoundException('Ticket not found');
+    // ── Ownership check: only the current owner may submit verification ──
+    if (ticket.currentOwner.toString() !== userId) {
+      throw new BadRequestException('You can only submit verification for your own tickets');
+    }
     if (ticket.type !== 'season') throw new BadRequestException('Only season passes need verification');
 
     await this.ticketModel.updateOne({ _id: ticketId }, {

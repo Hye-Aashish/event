@@ -3,7 +3,8 @@
 // In production, change this to your actual Render backend URL.
 const API = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')
   ? 'http://localhost:3000/api'
-  : 'https://navratri-app-backend.onrender.com/api';
+  // : 'http://localhost:3000/api';
+: 'https://navratri-app-backend.onrender.com/api';
 
 // ── State ─────────────────────────────────────────
 let state = {
@@ -20,7 +21,7 @@ function loadStoredAuth() {
   const u = localStorage.getItem('nav_user');
   if (t && u) {
     state.token = t;
-    state.user  = JSON.parse(u);
+    state.user = JSON.parse(u);
     onLogin();
   }
 }
@@ -44,7 +45,7 @@ function toast(msg, type = 'success') {
 }
 
 // ── Modal ─────────────────────────────────────────
-function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
 // ── Page Navigation ───────────────────────────────
@@ -56,8 +57,8 @@ function showPage(name) {
   if (nl) nl.classList.add('active');
   window.scrollTo(0, 0);
 
-  if (name === 'home')      loadHome();
-  if (name === 'events')    loadAllEvents();
+  if (name === 'home') loadHome();
+  if (name === 'events') loadAllEvents();
   if (name === 'mytickets') loadMyTickets();
 }
 
@@ -75,7 +76,7 @@ async function loadHome() {
     state.events = evts;
 
     // Stats
-    document.getElementById('hs-events').textContent  = evts.length;
+    document.getElementById('hs-events').textContent = evts.length;
     if (stats.status === 'fulfilled') {
       document.getElementById('hs-tickets').textContent = stats.value.totalTickets ?? '0';
     }
@@ -117,9 +118,9 @@ function renderEventCards(containerId, events) {
   el.innerHTML = events.map(e => {
     const prices = e.ticketPricing?.regular;
     const minPrice = prices ? Math.min(...Object.values(prices).filter(Boolean)) : 0;
-    const dates   = (e.eventDates || []).slice(0, 3);
+    const dates = (e.eventDates || []).slice(0, 3);
     const imgUrl = e.imageUrl ? (API.replace('/api', '') + e.imageUrl) : '';
-    const bannerHtml = imgUrl 
+    const bannerHtml = imgUrl
       ? `<div class="event-banner" style="background-image: url('${imgUrl}'); background-size: cover; background-position: center; height: 160px; border-radius: 12px 12px 0 0;"></div>`
       : `<div class="event-banner-placeholder">🪔</div>`;
 
@@ -157,11 +158,11 @@ async function openEvent(eventId) {
     ]);
     state.currentEvent = event;
 
-    const prices  = event.ticketPricing?.regular  || {};
+    const prices = event.ticketPricing?.regular || {};
     const sPrices = event.ticketPricing?.season || {};
 
     const imgUrl = event.imageUrl ? (API.replace('/api', '') + event.imageUrl) : '';
-    const bannerHtml = imgUrl 
+    const bannerHtml = imgUrl
       ? `<div class="event-banner" style="background-image: url('${imgUrl}'); background-size: cover; background-position: center; border-radius: 12px 12px 0 0; margin: -24px -24px 24px -24px; height: 260px;"></div>`
       : `<div class="event-banner-placeholder" style="border-radius:12px 12px 0 0;margin:-24px -24px 24px -24px;height:260px;font-size:80px">🪔</div>`;
 
@@ -172,19 +173,19 @@ async function openEvent(eventId) {
         <p style="color:var(--muted);margin-bottom:20px">${event.description || ''}</p>
         <div style="display:flex;flex-wrap:wrap;gap:20px;margin-bottom:24px">
           <div><div style="font-size:12px;color:var(--muted);margin-bottom:4px">VENUE</div><div style="font-weight:600">📍 ${event.venue}</div></div>
-          <div><div style="font-size:12px;color:var(--muted);margin-bottom:4px">DATES</div><div style="font-weight:600">${(event.eventDates||[]).join(' · ')}</div></div>
+          <div><div style="font-size:12px;color:var(--muted);margin-bottom:4px">DATES</div><div style="font-weight:600">${(event.eventDates || []).join(' · ')}</div></div>
         </div>
         ${event.status !== 'published' ? '<div style="background:rgba(255,200,0,.1);border:1px solid rgba(255,200,0,.3);color:#FFD600;padding:12px 18px;border-radius:10px;margin-bottom:16px">⚠️ This event is not available for booking yet</div>' : ''}
         <button class="btn btn-hero" style="font-size:15px" ${event.status !== 'published' ? 'disabled style="opacity:.4;cursor:not-allowed"' : ''} onclick="openBookingModal()">🎟️ Book Tickets</button>
       </div>
 
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px">
-        ${Object.entries(prices).filter(([,v])=>v>0).map(([cat,price]) => `
+        ${Object.entries(prices).filter(([, v]) => v > 0).map(([cat, price]) => `
           <div class="glass-card">
             <div style="font-size:13px;color:var(--muted);font-weight:600">REGULAR · ${cat}</div>
             <div style="font-size:26px;font-weight:800;margin-top:6px">₹${price}</div>
           </div>`).join('')}
-        ${Object.entries(sPrices).filter(([,v])=>v>0).map(([cat,price]) => `
+        ${Object.entries(sPrices).filter(([, v]) => v > 0).map(([cat, price]) => `
           <div class="glass-card" style="border-color:rgba(121,40,202,.2)">
             <div style="font-size:13px;color:#A855F7;font-weight:600">SEASON · ${cat}</div>
             <div style="font-size:26px;font-weight:800;margin-top:6px">₹${price}</div>
@@ -233,30 +234,30 @@ function changeQty(delta) {
 }
 
 function updatePrice() {
-  const ev  = state.currentEvent;
+  const ev = state.currentEvent;
   if (!ev) return;
-  
+
   const zoneSelect = document.getElementById('bookZone');
   const selectedZonePrice = zoneSelect?.selectedOptions[0]?.getAttribute('data-price');
-  
+
   const cat = document.getElementById('bookCategory')?.value || 'General';
-  const tp  = state.booking.type;
+  const tp = state.booking.type;
   const qty = state.booking.qty || 1;
 
   // Use zone price if available, otherwise fallback to event ticket pricing
-  const base   = selectedZonePrice ? Number(selectedZonePrice) : (ev.ticketPricing?.[tp]?.[cat] || 0);
-  const gst    = ev.gstEnabled ? Math.round(base * (ev.gstPercentage / 100)) : 0;
-  const total  = (base + gst) * qty;
+  const base = selectedZonePrice ? Number(selectedZonePrice) : (ev.ticketPricing?.[tp]?.[cat] || 0);
+  const gst = ev.gstEnabled ? Math.round(base * (ev.gstPercentage / 100)) : 0;
+  const total = (base + gst) * qty;
 
-  document.getElementById('ps-base').textContent  = `₹${base * qty}`;
-  document.getElementById('ps-gst').textContent   = `₹${gst * qty}`;
+  document.getElementById('ps-base').textContent = `₹${base * qty}`;
+  document.getElementById('ps-gst').textContent = `₹${gst * qty}`;
   document.getElementById('ps-total').textContent = `₹${total}`;
-  document.getElementById('pay-qty').textContent  = `${qty}x ${tp} · ${cat}`;
+  document.getElementById('pay-qty').textContent = `${qty}x ${tp} · ${cat}`;
   document.getElementById('pay-total').textContent = `₹${total}`;
 }
 
 function showStep(step) {
-  [1,2,3].forEach(s => {
+  [1, 2, 3].forEach(s => {
     const el = document.getElementById('bookStep' + s);
     if (el) el.style.display = s === step ? 'block' : 'none';
   });
@@ -273,19 +274,19 @@ async function bookingNext() {
 
   if (step === 1) {
     state.booking.category = document.getElementById('bookCategory').value;
-    state.booking.zoneId   = document.getElementById('bookZone').value;
+    state.booking.zoneId = document.getElementById('bookZone').value;
     state.booking.step = 2;
     showStep(2);
 
   } else if (step === 2) {
     // Initiate Razorpay order
     try {
-      const ev  = state.currentEvent;
+      const ev = state.currentEvent;
       const body = {
-        userId:   state.user._id,
-        eventId:  ev._id,
-        zoneId:   state.booking.zoneId,
-        type:     state.booking.type,
+        userId: state.user._id,
+        eventId: ev._id,
+        zoneId: state.booking.zoneId,
+        type: state.booking.type,
         category: state.booking.category,
         quantity: state.booking.qty,
       };
@@ -297,21 +298,21 @@ async function bookingNext() {
 
       // Open Razorpay checkout
       const options = {
-        key:      'rzp_test_placeholder', // Replace with real key
-        amount:   order.amount,
+        key: 'rzp_test_placeholder', // Replace with real key
+        amount: order.amount,
         currency: 'INR',
         order_id: order.id,
-        name:     'Navratri 2024',
+        name: 'Navratri 2024',
         description: `${state.booking.qty}x ${state.booking.type} ticket`,
         handler: async (response) => {
           await api('/tickets/verify-payment', {
             method: 'POST',
             body: JSON.stringify({
               ...response,
-              userId:   state.user._id,
-              eventId:  ev._id,
-              zoneId:   state.booking.zoneId,
-              type:     state.booking.type,
+              userId: state.user._id,
+              eventId: ev._id,
+              zoneId: state.booking.zoneId,
+              type: state.booking.type,
               category: state.booking.category,
               quantity: state.booking.qty,
             }),
@@ -351,14 +352,14 @@ async function requestOtp() {
     });
     document.getElementById('otpPhone').textContent = '+91' + phone;
     document.getElementById('stepPhone').style.display = 'none';
-    document.getElementById('stepOtp').style.display   = 'block';
+    document.getElementById('stepOtp').style.display = 'block';
     toast('📱 OTP sent!');
   } catch (e) { toast(e.message, 'error'); }
 }
 
 async function verifyOtp() {
   const phone = document.getElementById('phoneInput').value.trim();
-  const otp   = document.getElementById('otpInput').value.trim();
+  const otp = document.getElementById('otpInput').value.trim();
 
   try {
     const { access_token, user } = await api('/auth/verify-otp', {
@@ -366,9 +367,9 @@ async function verifyOtp() {
       body: JSON.stringify({ phoneNumber: '+91' + phone, otp }),
     });
     state.token = access_token;
-    state.user  = user;
+    state.user = user;
     localStorage.setItem('nav_token', access_token);
-    localStorage.setItem('nav_user',  JSON.stringify(user));
+    localStorage.setItem('nav_user', JSON.stringify(user));
     onLogin();
     toast('✅ Logged in!');
     showPage('home');
@@ -377,7 +378,7 @@ async function verifyOtp() {
 
 function onLogin() {
   document.getElementById('guestActions').style.display = 'none';
-  document.getElementById('userActions').style.display  = 'flex';
+  document.getElementById('userActions').style.display = 'flex';
   document.getElementById('userPhone').textContent = state.user?.phoneNumber || '';
   document.getElementById('nl-mytickets').style.display = 'inline-flex';
 }
@@ -387,7 +388,7 @@ function logout() {
   localStorage.removeItem('nav_user');
   state.user = null; state.token = null;
   document.getElementById('guestActions').style.display = 'flex';
-  document.getElementById('userActions').style.display  = 'none';
+  document.getElementById('userActions').style.display = 'none';
   document.getElementById('nl-mytickets').style.display = 'none';
   toast('👋 Logged out');
   showPage('home');
@@ -421,7 +422,7 @@ async function loadMyTickets() {
 
 function ticketCard(t) {
   const event = t.eventId;
-  const zone  = t.zoneId;
+  const zone = t.zoneId;
   const isVerified = t.isVerified;
   const needsVerify = t.type === 'season' && !isVerified;
 
@@ -444,11 +445,11 @@ function ticketCard(t) {
       </div>
       <div class="ticket-actions">
         ${t.status === 'active' && (t.type === 'regular' || isVerified) ?
-          `<button class="btn btn-success" onclick="viewQr('${t._id}')">📱 Show QR</button>` : ''}
+      `<button class="btn btn-success" onclick="viewQr('${t._id}')">📱 Show QR</button>` : ''}
         ${needsVerify ?
-          `<button class="btn btn-primary" onclick="openVerify('${t._id}')">🪪 Verify Identity</button>` : ''}
+      `<button class="btn btn-primary" onclick="openVerify('${t._id}')">🪪 Verify Identity</button>` : ''}
         ${t.transferable && t.status === 'active' ?
-          `<button class="btn btn-sm" onclick="openTransfer('${t._id}')">↗️ Transfer</button>` : ''}
+      `<button class="btn btn-sm" onclick="openTransfer('${t._id}')">↗️ Transfer</button>` : ''}
       </div>
     </div>`;
 }
@@ -550,7 +551,7 @@ function openVerify(ticketId) {
 let verifyData = { selfie: false, id: false };
 
 function captureSelfie(ticketId) { document.getElementById('selfieInput').click(); }
-function uploadId(ticketId)      { document.getElementById('idInput').click(); }
+function uploadId(ticketId) { document.getElementById('idInput').click(); }
 
 function onSelfieSelected(e, ticketId) {
   verifyData.selfie = true;

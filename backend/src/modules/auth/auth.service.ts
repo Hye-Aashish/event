@@ -35,8 +35,8 @@ export class AuthService {
   async requestOtp(phoneNumber: string, ipAddress?: string) {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     otpStore.set(phoneNumber, { otp, expiry: Date.now() + 5 * 60 * 1000 }); // 5 min
-    // In production: send via SMS gateway (MSG91 / Twilio)
-    console.log(`📱 OTP for ${phoneNumber}: ${otp}`);
+    // TODO: Send via SMS gateway (MSG91 / Twilio) — SMTP integration coming soon
+    // OTP intentionally NOT logged to console for security
 
     this.writeAuthLog({ phoneNumber, event: 'otp_requested', ipAddress });
     return { message: 'OTP sent successfully' };
@@ -101,10 +101,16 @@ export class AuthService {
     return { success: true, user };
   }
 
-  async updateProfile(userId: string, data: { name?: string; email?: string; role?: string }) {
+  async updateProfile(userId: string, data: { name?: string; email?: string }) {
+    // Strip any attempt to change role via this endpoint (security: use admin panel for role changes)
+    const { name, email } = data as any;
+    const safeData: { name?: string; email?: string } = {};
+    if (name !== undefined) safeData.name = name;
+    if (email !== undefined) safeData.email = email;
+
     const user = await this.userModel.findByIdAndUpdate(
       userId,
-      { $set: data },
+      { $set: safeData },
       { new: true },
     );
     if (!user) throw new UnauthorizedException('User not found');
@@ -114,7 +120,7 @@ export class AuthService {
       phoneNumber: user.phoneNumber,
       event: 'profile_updated',
       role: user.role,
-      metadata: { updatedFields: Object.keys(data) },
+      metadata: { updatedFields: Object.keys(safeData) },
     });
 
     return { success: true, user };
